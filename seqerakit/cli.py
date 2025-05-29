@@ -33,96 +33,91 @@ from seqerakit.seqeraplatform import (
 )
 from seqerakit import __version__
 from seqerakit.on_exists import OnExists
+from seqerakit.dump import Dump
 
 logger = logging.getLogger(__name__)
 
+import argparse
+import os
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
         description="Create resources on Seqera Platform using a YAML configuration file."
     )
-    # General options
+
+    # General options (available for both file-based and subcommand-based operations)
     general = parser.add_argument_group("General Options")
     general.add_argument(
-        "-l",
-        "--log_level",
+        "-l", "--log_level",
         default="INFO",
         choices=("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"),
-        help="Set the logging level.",
+        help="Set the logging level."
     )
     general.add_argument(
-        "--info",
-        "-i",
+        "--info", "-i",
         action="store_true",
-        help="Display Seqera Platform information and exit.",
+        help="Display Seqera Platform information and exit."
     )
     general.add_argument(
-        "-j", "--json", action="store_true", help="Output JSON format in stdout."
-    )
-    general.add_argument(
-        "--dryrun",
-        "-d",
+        "-j", "--json",
         action="store_true",
-        help="Print the commands that would be executed.",
+        help="Output JSON format in stdout."
     )
     general.add_argument(
-        "--version",
-        "-v",
+        "--dryrun", "-d",
+        action="store_true",
+        help="Print the commands that would be executed."
+    )
+    general.add_argument(
+        "--version", "-v",
         action="version",
         version=f"%(prog)s {__version__}",
-        help="Show version number and exit.",
+        help="Show version number and exit."
+    )
+    
+    # Subparsers for commands
+    subparsers = parser.add_subparsers(dest="command", required=False)
+    
+    # # Create the dump parser
+    dump_parser = subparsers.add_parser("dump", help="Dump resources to YAML format")
+    dump_parser.add_argument(
+        "resource_type",
+        choices=["compute-envs", "pipelines"],
+        help="Type of resource to dump"
+    )
+    dump_parser.add_argument(
+        "-w", "--workspace",
+        required=True,
+        help="Workspace name"
+    )
+    dump_parser.add_argument(
+        "-n", "--name",
+        required=True,
+        help="Name of the resource to dump"
+    )
+    dump_parser.add_argument(
+        "-o", "--output",
+        help="Output file path (defaults to stdout if not specified)"
+    )
+    
+    # Allow YAML file inputs by capturing the remaining arguments as 'files'
+    parser.add_argument(
+        "files",
+        nargs=argparse.REMAINDER,
+        help="One or more YAML files with Seqera Platform resource definitions."
     )
 
-    # YAML processing options
-    yaml_processing = parser.add_argument_group("YAML Processing Options")
-    yaml_processing.add_argument(
-        "yaml",
-        nargs="*",
-        help="One or more YAML files with Seqera Platform resource definitions.",
-    )
-    yaml_processing.add_argument(
-        "--delete",
-        action="store_true",
-        help="Recursively delete resources defined in the YAML files.",
-    )
-    yaml_processing.add_argument(
-        "--cli",
-        dest="cli_args",
-        type=str,
-        action="append",
-        help="Additional Seqera Platform CLI specific options to be passed,"
-        " enclosed in double quotes (e.g. '--cli=\"--insecure\"'). Can be specified"
-        " multiple times.",
-    )
-    yaml_processing.add_argument(
-        "--targets",
-        dest="targets",
-        type=str,
-        help="Specify the resources to be targeted for creation in a YAML file through "
-        "a comma-separated list (e.g. '--targets=teams,participants').",
-    )
-    yaml_processing.add_argument(
-        "--env-file",
-        dest="env_file",
-        type=str,
-        help="Path to a YAML file containing environment variables for configuration.",
-    )
-    yaml_processing.add_argument(
-        "--on-exists",
-        dest="on_exists",
-        type=str,
-        help="Globally specifies the action to take if a resource already exists.",
-        choices=[e.name.lower() for e in OnExists],
-    )
-    yaml_processing.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="""
-        Globally enable overwrite for all resources defined in YAML input(s).
-        "Deprecated: Please use '--on-exists=overwrite' instead.""",
-        deprecated=True,
-    )
-    return parser.parse_args(args)
+    args = parser.parse_args(args)
+    
+    # If 'files' are provided and a command is not, treat it as file processing
+    if args.files and args.command is None:
+        if all(os.path.isfile(f) and f.endswith(('.yaml', '.yml')) for f in args.files):
+            args.command = "files"
+        else:
+            parser.error("Invalid file(s) provided. Only YAML files are accepted.")
+    
+    return args
+
 
 
 class BlockParser:
@@ -262,6 +257,35 @@ def find_yaml_files(path_list=None):
 
     return yaml_files
 
+def dump_command(args, sp):
+    dump = Dump(sp)
+    result = dump.dump_resource(
+        resource_type=args.resource_type,
+        workspace=args.workspace,
+        name=args.name
+    )
+    formatted_output = {
+        args.resource_type: [result]
+    }
+    
+    # Convert to YAML with explicit indentation
+    output = yaml.dump(
+        formatted_output, 
+        sort_keys=False, 
+        default_flow_style=False,
+        indent=2,
+        width=float("inf"),
+        allow_unicode=True
+    )
+    
+    # Write to file or stdout
+    if args.output:
+        with open(args.output, 'w') as f:
+            f.write(output)
+    else:
+        print(output)
+
+
 
 def main(args=None):
     options = parse_args(args if args is not None else sys.argv[1:])
@@ -269,7 +293,7 @@ def main(args=None):
 
     # Parse CLI arguments into a list
     cli_args_list = []
-    if options.cli_args:
+    if hasattr(options, 'cli_args') and options.cli_args:
         for cli_arg in options.cli_args:
             cli_args_list.extend(cli_arg.split())
 
@@ -285,7 +309,9 @@ def main(args=None):
                     os.environ[key] = full_value
 
     sp = seqeraplatform.SeqeraPlatform(
-        cli_args=cli_args_list, dryrun=options.dryrun, json=options.json
+        cli_args=cli_args_list,
+        dryrun=options.dryrun,
+        json=options.json
     )
     sp.overwrite = options.overwrite  # If global overwrite is set
 
@@ -310,38 +336,43 @@ def main(args=None):
         logging.error(e)
         sys.exit(1)
 
-    yaml_files = find_yaml_files(options.yaml)
-
-    block_manager = BlockParser(
-        sp,
-        [
-            "organizations",  # all use method.add
-            "workspaces",
-            "labels",
-            "members",
-            "credentials",
-            "secrets",
-            "actions",
-            "datasets",
-            "studios",
-            "data-links",
-        ],
-    )
-
-    # Parse the YAML file(s) by blocks
-    # and get a dictionary of command line arguments
-    try:
+    if options.command == "dump":
+        dump_command(options, sp)
+    else:
+        # Process YAML files only for non-dump commands
+        yaml_files = find_yaml_files(options.files)
         cmd_args_dict = helper.parse_all_yaml(
             yaml_files, destroy=options.delete, targets=options.targets, sp=sp
         )
-        for block, args_list in cmd_args_dict.items():
-            for args in args_list:
-                block_manager.handle_block(
-                    block, args, destroy=options.delete, dryrun=options.dryrun
-                )
-    except (ResourceExistsError, ResourceNotFoundError, CommandError, ValueError) as e:
-        logging.error(e)
-        sys.exit(1)
+        block_manager = BlockParser(
+            sp,
+            [
+                "organizations",  # all use method.add
+                "workspaces",
+                "labels",
+                "members",
+                "credentials",
+                "secrets",
+                "actions",
+                "datasets",
+                "studios",
+                "data-links",
+            ],
+        )
+
+        # Parse the YAML file(s) by blocks
+        # and get a dictionary of command line arguments
+        try:
+            for block, args_list in cmd_args_dict.items():
+                for args in args_list:
+                    block_manager.handle_block(
+                        block, args, destroy=options.delete, dryrun=options.dryrun
+                    )
+        except (ResourceExistsError, ResourceNotFoundError, CommandError, ValueError) as e:
+            logging.error(e)
+            sys.exit(1)
+
+
 
 
 if __name__ == "__main__":

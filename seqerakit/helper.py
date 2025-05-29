@@ -22,6 +22,283 @@ from seqerakit import utils
 import sys
 import json
 from seqerakit.on_exists import OnExists
+from seqerakit.models.pipeline import Pipeline
+from seqerakit.models.compute_env import ComputeEnv
+from pydantic import ValidationError
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Union, List, Tuple
+from dataclasses import dataclass
+
+
+@dataclass
+class Command:
+    """Represents a TW command to be executed"""
+    subcommand: str
+    args: List[str]
+    method: str = "add"  # Default method
+    
+    def to_args_list(self) -> List[str]:
+        """Convert to list of arguments for subprocess"""
+        if self.method:
+            return [self.subcommand, self.method] + self.args
+        return [self.subcommand] + self.args
+
+
+class ArgumentBuilder:
+    """Helper class to build command arguments in a structured way"""
+    
+    def __init__(self):
+        self.args: List[str] = []
+    
+    def add_flag(self, flag: str, condition: bool = True) -> 'ArgumentBuilder':
+        """Add a boolean flag if condition is true"""
+        if condition:
+            self.args.append(f"--{flag}")
+        return self
+    
+    def add_option(self, key: str, value: Any) -> 'ArgumentBuilder':
+        """Add a key-value option"""
+        if value is not None:
+            self.args.extend([f"--{key}", str(value)])
+        return self
+    
+    def add_positional(self, value: str) -> 'ArgumentBuilder':
+        """Add a positional argument"""
+        self.args.append(str(value))
+        return self
+    
+    def build(self) -> List[str]:
+        """Return the built argument list"""
+        return self.args.copy()
+
+
+class CommandBuilder(ABC):
+    """Base class for building commands from YAML data"""
+    
+    @abstractmethod
+    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
+        """Build a command from YAML item"""
+        pass
+
+
+class GenericCommandBuilder(CommandBuilder):
+    def __init__(self, subcommand: str, method: str = "add"):
+        self.subcommand = subcommand
+        self.method = method
+    
+    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
+        builder = ArgumentBuilder()
+        
+        for key, value in item.items():
+            if isinstance(value, bool):
+                builder.add_flag(key, value)
+            else:
+                builder.add_option(key, value)
+        
+        return Command(
+            subcommand=self.subcommand,
+            method=self.method,
+            args=builder.build()
+        )
+
+
+class TypeBasedCommandBuilder(CommandBuilder):
+    """For resources that need type/config-mode/file-path as positional args"""
+    
+    def __init__(self, subcommand: str):
+        self.subcommand = subcommand
+    
+    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
+        builder = ArgumentBuilder()
+        item_copy = item.copy()
+        
+        # Ensure at least one of 'type' or 'file-path' is present
+        if not any(key in item for key in ["type", "file-path"]):
+            raise ValueError("Please specify at least 'type' or 'file-path' for creating the resource.")
+        
+        # Handle priority arguments first
+        priority_keys = ["type", "config-mode", "file-path"]
+        for key in priority_keys:
+            if key in item_copy:
+                builder.add_positional(item_copy.pop(key))
+        
+        # Handle remaining arguments
+        for key, value in item_copy.items():
+            if isinstance(value, bool):
+                builder.add_flag(key, value)
+            elif key == "params":
+                temp_file = utils.create_temp_yaml(value)
+                builder.add_option("params-file", temp_file)
+            else:
+                builder.add_option(key, value)
+        
+        # Determine method based on file type
+        method = "import" if any(".json" in str(v) for v in item.values()) else "add"
+        
+        return Command(
+            subcommand=self.subcommand,
+            method=method,
+            args=builder.build()
+        )
+
+
+class TeamsCommandBuilder(CommandBuilder):
+    """Special handling for teams with members"""
+    
+    def build_command(self, item: Dict[str, Any], sp=None) -> Union[Command, Tuple[Command, List[Command]]]:
+        builder = ArgumentBuilder()
+        cmd_keys = ["name", "organization", "description"]
+        members_commands = []
+        
+        # Build main team command
+        for key, value in item.items():
+            if key in cmd_keys:
+                builder.add_option(key, value)
+            elif key == "members":
+                # Build member commands
+                for member in value:
+                    member_builder = ArgumentBuilder()
+                    member_builder.add_option("team", item["name"])
+                    member_builder.add_option("organization", item["organization"])
+                    member_builder.add_positional("add")
+                    member_builder.add_option("member", member)
+                    
+                    members_commands.append(Command(
+                        subcommand="teams",
+                        method="members",
+                        args=member_builder.build()
+                    ))
+        
+        main_command = Command(
+            subcommand="teams",
+            method="add",
+            args=builder.build()
+        )
+        
+        if members_commands:
+            return (main_command, members_commands)
+        return main_command
+
+
+class PipelineCommandBuilder(CommandBuilder):
+    """For pipelines and launch commands"""
+    
+    def __init__(self, subcommand: str):
+        self.subcommand = subcommand
+    
+    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
+        builder = ArgumentBuilder()
+        item_copy = item.copy()
+        
+        # Handle URL/file-path as positional
+        if "url" in item_copy:
+            builder.add_positional(item_copy.pop("url"))
+        elif "file-path" in item_copy:
+            builder.add_positional(item_copy.pop("file-path"))
+        elif "pipeline" in item_copy:  # For launch
+            builder.add_positional(item_copy.pop("pipeline"))
+        
+        # Handle params directly without converting to flat list first
+        params = item_copy.pop("params", None)
+        params_file = item_copy.pop("params-file", None)
+        
+        if params:
+            # Resolve dataset reference if needed
+            if sp is not None and item.get("workspace"):
+                params = resolve_dataset_reference(params, item["workspace"], sp)
+            
+            # Create temp file and add params-file option
+            temp_file = utils.create_temp_yaml(params, params_file=params_file)
+            builder.add_option("params-file", temp_file)
+        elif params_file:
+            builder.add_option("params-file", params_file)
+        
+        # Handle remaining options
+        for key, value in item_copy.items():
+            if isinstance(value, bool):
+                builder.add_flag(key, value)
+            else:
+                builder.add_option(key, value)
+        
+        # Determine method
+        method = "import" if any(".json" in str(v) for v in item.values()) else "add"
+        
+        return Command(
+            subcommand=self.subcommand,
+            method=method,
+            args=builder.build()
+        )
+
+
+# Registry of command builders
+COMMAND_BUILDERS: Dict[str, CommandBuilder] = {
+    "credentials": TypeBasedCommandBuilder("credentials"),
+    "compute-envs": TypeBasedCommandBuilder("compute-envs"),
+    "actions": TypeBasedCommandBuilder("actions"),
+    "teams": TeamsCommandBuilder(),
+    "pipelines": PipelineCommandBuilder("pipelines"),
+    "launch": PipelineCommandBuilder("launch"),
+    "datasets": GenericCommandBuilder("datasets"),
+    "workspaces": GenericCommandBuilder("workspaces"),
+    "organizations": GenericCommandBuilder("organizations"),
+    "labels": GenericCommandBuilder("labels"),
+    "members": GenericCommandBuilder("members"),
+    "participants": GenericCommandBuilder("participants"),
+    "secrets": GenericCommandBuilder("secrets"),
+    "data-links": GenericCommandBuilder("data-links"),
+    "studios": GenericCommandBuilder("studios"),
+}
+
+
+def validate_yaml_block(block_name: str, items: list) -> list:
+    """Validate YAML using Pydantic models defined in models/"""
+    model_map = {
+        "pipelines": Pipeline,
+        "compute-envs": ComputeEnv,
+        # TODO: add more models as needed once we have them
+    }
+    
+    if block_name not in model_map:
+        return items  # No validation for unsupported types
+    
+    model_class = model_map[block_name]
+    validated_items = []
+    
+    for item in items:
+        try:
+            validated_item = model_class(**item)
+            validated_items.append(validated_item.input_dict())
+        except ValidationError as e:
+            raise ValueError(f"Validation error in {block_name}: {e}")
+    
+    return validated_items
+
+
+def parse_block(block_name: str, item: Dict[str, Any], sp=None) -> Dict[str, Any]:
+    """Parse a block using command builders"""
+    builder = COMMAND_BUILDERS.get(block_name, GenericCommandBuilder(block_name))
+    
+    # Handle on_exists/overwrite
+    item_copy = item.copy()
+    overwrite = item_copy.pop("overwrite", None)
+    on_exists_str = item_copy.pop("on_exists", "fail")
+    
+    if overwrite is not None:
+        on_exists = OnExists.OVERWRITE if overwrite else OnExists.FAIL
+    elif isinstance(on_exists_str, str):
+        try:
+            on_exists = OnExists[on_exists_str.upper()]
+        except KeyError:
+            raise ValueError(f"Invalid on_exists option: '{on_exists_str}'")
+    else:
+        on_exists = on_exists_str
+    
+    command_result = builder.build_command(item_copy, sp)
+    
+    return {
+        "command": command_result,
+        "on_exists": on_exists
+    }
 
 
 def parse_yaml_block(yaml_data, block_name, sp=None):
@@ -32,15 +309,17 @@ def parse_yaml_block(yaml_data, block_name, sp=None):
     if not block:
         return block_name, []
 
+    # Validate the block using Pydantic models
+    validated_block = validate_yaml_block(block_name, block)
+
     # Initialize an empty list to hold the lists of command line arguments.
     cmd_args_list = []
 
     # Initialize a set to track the --name values within the block.
     name_values = set()
 
-    # Iterate over each item in the block.
-    # TODO: fix for resources that can be duplicate named in an org
-    for item in block:
+    # Iterate over each validated item in the block.
+    for item in validated_block:
         cmd_args = parse_block(block_name, item, sp)
         name = find_name(cmd_args)
         if name in name_values:
@@ -151,136 +430,6 @@ def parse_all_yaml(file_paths, destroy=False, targets=None, sp=None):
     return cmd_args_dict
 
 
-def parse_block(block_name, item, sp=None):
-    # Define the mapping from block names to functions.
-    block_to_function = {
-        "credentials": lambda x, s: parse_type_block(x, sp=s),
-        "compute-envs": lambda x, s: parse_type_block(x, sp=s),
-        "actions": lambda x, s: parse_type_block(x, sp=s),
-        "teams": parse_teams_block,
-        "datasets": parse_datasets_block,
-        "pipelines": lambda x, s: parse_pipelines_block(x, sp=s),
-        "launch": parse_launch_block,
-    }
-
-    # Use the generic block function as a default.
-    parse_fn = block_to_function.get(block_name, parse_generic_block)
-
-    # Get on_exists setting with backward compatibility for overwrite
-    overwrite = item.pop("overwrite", None)
-    on_exists_str = item.pop("on_exists", "fail")
-
-    # Determine final on_exists value
-    if overwrite is not None:
-        # overwrite takes precedence for backward compatibility
-        on_exists = OnExists.OVERWRITE if overwrite else OnExists.FAIL
-    elif isinstance(on_exists_str, str):
-        try:
-            on_exists = OnExists[on_exists_str.upper()]
-        except KeyError:
-            raise ValueError(
-                f"Invalid on_exists option: '{on_exists_str}'. "
-                f"Valid options are: "
-                f"{', '.join(behaviour.name.lower() for behaviour in OnExists)}"
-            )
-    else:
-        # Use directly if already an enum
-        on_exists = on_exists_str
-
-    cmd_args = parse_fn(item, sp) if "lambda" in str(parse_fn) else parse_fn(item)
-
-    return {"cmd_args": cmd_args, "on_exists": on_exists}
-
-
-# Parsers for certain blocks of yaml that require handling
-# for structuring command line arguments in a certain way
-
-
-def parse_generic_block(item, sp=None):
-    cmd_args = []
-    for key, value in item.items():
-        if isinstance(value, bool):
-            if value:
-                cmd_args.append(f"--{key}")
-        else:
-            cmd_args.extend([f"--{key}", str(value)])
-    return cmd_args
-
-
-def parse_type_block(item, priority_keys=["type", "config-mode", "file-path"], sp=None):
-    cmd_args = []
-
-    # Ensure at least one of 'type' or 'file-path' is present
-    if not any(key in item for key in ["type", "file-path"]):
-        raise ValueError(
-            "Please specify at least 'type' or 'file-path' for creating the resource."
-        )
-
-    # Process priority keys first
-    for key in priority_keys:
-        if key in item:
-            cmd_args.append(str(item[key]))
-            del item[key]  # Remove the key to avoid repeating in args
-
-    for key, value in item.items():
-        if isinstance(value, bool):
-            if value:
-                cmd_args.append(f"--{key}")
-        elif key == "params":
-            temp_file_name = utils.create_temp_yaml(value)
-            cmd_args.extend(["--params-file", temp_file_name])
-        else:
-            cmd_args.extend([f"--{key}", str(value)])
-    return cmd_args
-
-
-def parse_teams_block(item, sp=None):
-    # Keys for each list
-    cmd_keys = ["name", "organization", "description"]
-    members_keys = ["name", "organization", "members"]
-
-    cmd_args = []
-    members_cmd_args = []
-
-    for key, value in item.items():
-        if key in cmd_keys:
-            cmd_args.extend([f"--{key}", str(value)])
-        elif key in members_keys and key == "members":
-            for member in value:
-                members_cmd_args.append(
-                    [
-                        "--team",
-                        str(item["name"]),
-                        "--organization",
-                        str(item["organization"]),
-                        "add",
-                        "--member",
-                        str(member),
-                    ]
-                )
-    return (cmd_args, members_cmd_args)
-
-
-def parse_datasets_block(item, sp=None):
-    cmd_args = []
-    for key, value in item.items():
-        if key == "file-path":
-            cmd_args.extend(
-                [
-                    str(item["file-path"]),
-                    "--name",
-                    str(item["name"]),
-                    "--workspace",
-                    str(item["workspace"]),
-                    "--description",
-                    str(item["description"]),
-                ]
-            )
-        if key == "header" and value is True:
-            cmd_args.append("--header")
-    return cmd_args
-
-
 def resolve_dataset_reference(params_dict, workspace, sp):
     """
     Resolve dataset reference to URL in params dictionary.
@@ -349,115 +498,6 @@ def process_params_dict(params_dict, workspace=None, sp=None, params_file_path=N
         params_args.extend(["--params-file", params_file_path])
 
     return params_args
-
-
-def parse_pipelines_block(item, sp=None):
-    """Parse pipeline block."""
-    cmd_args = []
-    repo_args = []
-
-    for key, value in item.items():
-        if key == "url":
-            repo_args.extend([str(value)])
-        elif key == "params":
-            continue  # Handle params after the loop
-        elif key == "file-path":
-            repo_args.extend([str(value)])
-        elif isinstance(value, bool):
-            if value:
-                cmd_args.append(f"--{key}")
-        else:
-            cmd_args.extend([f"--{key}", str(value)])
-
-    params_args = process_params_dict(
-        item.get("params"), workspace=item.get("workspace"), sp=sp
-    )
-
-    combined_args = cmd_args + repo_args + params_args
-    return combined_args
-
-
-def parse_launch_block(item, sp=None):
-    """Parse launch block."""
-    cmd_args = []
-    repo_args = []
-
-    for key, value in item.items():
-        if key == "pipeline" or key == "url":
-            repo_args.extend([str(value)])
-        elif key in ["params", "params-file"]:
-            continue  # Handle params after the loop
-        elif isinstance(value, bool):
-            if value:
-                cmd_args.append(f"--{key}")
-        else:
-            cmd_args.extend([f"--{key}", str(value)])
-
-    params_args = process_params_dict(
-        item.get("params"),
-        workspace=item.get("workspace"),
-        sp=sp,
-        params_file_path=item.get("params-file"),
-    )
-
-    combined_args = cmd_args + repo_args + params_args
-    return combined_args
-
-
-# Handlers to call the actual sp method,based on the block name.
-# Certain blocks required special handling and combination of methods.
-
-
-def handle_generic_block(sp, block, args, method_name="add"):
-    # Generic handler for most blocks, with optional method name
-    method = getattr(sp, block)
-    if method_name is None:
-        method(*args)
-    else:
-        method(method_name, *args)
-
-
-def handle_teams(sp, args):
-    cmd_args, members_cmd_args = args
-    sp.teams("add", *cmd_args)
-    for sublist in members_cmd_args:
-        sp.teams("members", *sublist)
-
-
-def handle_participants(sp, args):
-    # Generic handler for blocks with a key to skip
-    method = getattr(sp, "participants")
-    skip_key = "--role"
-    new_args = [
-        arg
-        for i, arg in enumerate(args)
-        if not (args[i - 1] == skip_key or arg == skip_key)
-    ]
-    method("add", *new_args)
-    method("update", *args)
-
-
-def handle_compute_envs(sp, args):
-    json_file = any(".json" in arg for arg in args)
-
-    method = getattr(sp, "compute_envs")
-
-    if json_file:
-        method("import", *args)
-    else:
-        method("add", *args)
-
-
-def handle_pipelines(sp, args):
-    method = getattr(sp, "pipelines")
-    for arg in args:
-        # Check if arg is a url or a json file.
-        # If it is, use the appropriate method and break.
-        if utils.is_url(arg):
-            method("add", *args)
-            break
-        elif ".json" in arg:
-            method("import", *args)
 
 
 def find_name(cmd_args):
