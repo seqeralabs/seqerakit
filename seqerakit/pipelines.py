@@ -15,6 +15,7 @@
 """
 Subclass of SeqeraPlatform class for overriding pipelines subcommand methods.
 """
+
 from pathlib import Path
 from seqerakit.seqeraplatform import SeqeraPlatform
 

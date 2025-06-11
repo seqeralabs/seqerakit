@@ -41,21 +41,15 @@ jobs:
       AWS_WORK_DIR: ${{ secrets.AWS_WORK_DIR }}
       AWS_COMPUTE_ENV_NAME: ${{ secrets.AWS_COMPUTE_ENV_NAME }}
     steps:
-      - name: Check out source-code repository
-        uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.12'
+          enable-cache: true
+          cache-dependency-glob: 'uv.lock'
 
-      - name: Install pip & seqerakit
+      - name: Install Tower CLI
         run: |
-          pip install -e .
-
-      - name: Install Tower CLI v0.11.3
-        run: |
-          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.11.3/tw-linux-x86_64 \
+          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.10.3/tw-linux-x86_64 \
           && chmod +x tw-linux-x86_64 \
           && sudo mv tw-linux-x86_64 /usr/local/bin/tw
 
@@ -67,7 +61,7 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml --delete || true
+          uv run seqerakit examples/yaml/e2e/*.yml --delete || true
 
       - name: dryrun
         run: |
@@ -83,7 +77,7 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml
+          uv run seqerakit examples/yaml/e2e/*.yml
 
       - name: teardown
         if: ( success() || failure() ) && ( github.event_name != 'workflow_dispatch' || inputs.clearup )
@@ -92,4 +86,4 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml --delete
+          uv runseqerakit examples/yaml/e2e/*.yml --delete
