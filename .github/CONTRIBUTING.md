@@ -29,6 +29,8 @@ conda env create -f environment.yml
 conda activate seqerakit
 ```
 
+Or [install tw-cli from GitHub](https://github.com/seqeralabs/tower-cli?tab=readme-ov-file#getting-started).
+
 You can then install the local repository for development using the `pip -e` command which will install it in place without copying it to your `PYTHONPATH`. Using `--no-deps` will ignore dependencies which have already been installed via Conda. This assumes the current working directory is a clone of this repository.
 
 ```console
@@ -36,6 +38,15 @@ pip install -e . --no-deps
 ```
 
 You can then develop the code before committing changes and opening a pull request.
+
+#### uv workflow
+
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+2. `uv run seqerakit -h`
+
+##### Publishing
+
+1. [uv publish](https://docs.astral.sh/uv/guides/publish/)
 
 ### pre-commit
 

@@ -17,6 +17,7 @@ This script is used to build a Seqera Platform instance from a YAML configuratio
 Requires a YAML file that defines the resources to be created in Seqera Platform and
 the required options for each resource based on the Seqera Platform CLI.
 """
+
 import argparse
 import logging
 import sys
