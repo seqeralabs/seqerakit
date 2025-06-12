@@ -17,6 +17,7 @@ This file contains helper functions for the library.
 Including handling methods for each block in the YAML file, and parsing
 methods for each block in the YAML file.
 """
+
 import yaml  # type: ignore
 from seqerakit import utils
 import sys
