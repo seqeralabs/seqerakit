@@ -22,7 +22,7 @@ Follow the [Github flow](https://docs.github.com/en/get-started/quickstart/githu
 
 ### Developing Locally
 
-We recommend using [uv](https://docs.astral.sh/uv/) for local development as it provides fast dependency resolution and package management. 
+We recommend using [uv](https://docs.astral.sh/uv/) for local development as it provides fast dependency resolution and package management.
 
 #### uv workflow (Recommended)
 
