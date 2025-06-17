@@ -49,7 +49,7 @@ jobs:
 
       - name: Install Tower CLI
         run: |
-          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.10.3/tw-linux-x86_64 \
+          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.12.0/tw-linux-x86_64 \
           && chmod +x tw-linux-x86_64 \
           && sudo mv tw-linux-x86_64 /usr/local/bin/tw
 
