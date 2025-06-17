@@ -4,33 +4,37 @@
 ##   2. Via a JSON file exported from Seqera Platform with the "tw compute-envs export" command
 compute-envs:
 # To create a compute environment from a JSON configuration file (AWS Example)
-  - name: 'my_aws_compute_environment'                              # required
-    workspace: 'my_organization/my_workspace'                       # optional
-    credentials: 'my_aws_credentials'                               # required
-    wait: 'AVAILABLE'                                               # optional
-    file-path: './compute-envs/my_aws_compute_environment.json'     # required
-    on_exists: overwrite                                             # optional
+  - name: 'my_aws_compute_environment'                                              # required
+    workspace: 'my_organization/my_workspace'                                       # optional
+    credentials: 'my_aws_credentials'                                               # required
+    wait: 'AVAILABLE'                                                               # optional
+    file-path: './compute-envs/my_aws_compute_environment.json'                     # required
+    on_exists: overwrite                                                            # optional
 
 # To create a compute environment with options specified through YAML (AWS Example)
-  - type: aws-batch                                                 # required
-    config-mode: forge                                              # required for AWS and Azure
-    name: 'my_aws_compute_environment'                              # required
-    workspace: 'my_organization/my_workspace'                       # optional
-    credentials: 'my_aws_credentials'                               # required
-    region: 'eu-west-1'                                             # required
-    work-dir: 's3://my-bucket'                                      # required
-    provisioning-model: 'SPOT'                                      # optional
-    fusion-v2: False                                                # optional
-    wave: False                                                     # optional
-    fargate: False                                                  # optional
-    fast-storage: False                                             # optional
-    instance-types: 'c6i,r6i,m6i'                                   # optional, comma separated list
-    no-ebs-auto-scale: True                                         # optional
-    max-cpus: 500                                                   # required
-    labels: 'label1,label2'                                         # optional, comma separated list
-    vpc-id: 'vpc-1234567890'                                        # optional
-    subnets: 'subnet-1234567890,subnet-1234567891'                  # optional, comma separated list
-    security-groups: 'sg-1234567890,sg-1234567891'                  # optional, comma separated list
-    allow-buckets: 's3://my-bucket,s3://my-other-bucket'            # optional, comma separated list
-    wait: 'AVAILABLE'                                               # optional
-    on_exists: ignore                                               # optional
+  - type: aws-batch                                                                 # required
+    config-mode: forge                                                              # required for AWS and Azure
+    name: 'my_aws_compute_environment'                                              # required
+    workspace: 'my_organization/my_workspace'                                       # optional
+    credentials: 'my_aws_credentials'                                               # required
+    region: 'eu-west-1'                                                             # required
+    work-dir: 's3://my-bucket'                                                      # required
+    pre-run: '/path/to/pre-run.sh'                                                  # optional
+    post-run: '/path/to/post-run.sh'                                                # optional
+    nextflow-config: '/path/to/nextflow.config'                                     # optional
+    provisioning-model: 'SPOT'                                                      # optional
+    fusion-v2: False                                                                # optional
+    wave: False                                                                     # optional
+    fargate: False                                                                  # optional
+    fast-storage: False                                                             # optional
+    instance-types: 'c6i,r6i,m6i'                                                   # optional, comma separated list
+    no-ebs-auto-scale: True                                                         # optional
+    batch-execution-role: 'arn:aws:iam::123456789012:role/my-batch-execution-role'  # optional
+    max-cpus: 500                                                                   # required
+    labels: 'label1,label2'                                                         # optional, comma separated list
+    vpc-id: 'vpc-1234567890'                                                        # optional
+    subnets: 'subnet-1234567890,subnet-1234567891'                                  # optional, comma separated list
+    security-groups: 'sg-1234567890,sg-1234567891'                                  # optional, comma separated list
+    allow-buckets: 's3://my-bucket,s3://my-other-bucket'                            # optional, comma separated list
+    wait: 'AVAILABLE'                                                               # optional
+    on_exists: ignore                                                               # optional
