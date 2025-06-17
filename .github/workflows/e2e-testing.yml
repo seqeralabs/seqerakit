@@ -21,7 +21,7 @@ on:
 
 jobs:
   e2e-testing:
-    name:
+    name: E2E Testing
     if: github.repository == 'seqeralabs/seqerakit'
     runs-on: ubuntu-latest
 
@@ -86,4 +86,4 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          uv runseqerakit examples/yaml/e2e/*.yml --delete
+          uv run seqerakit examples/yaml/e2e/*.yml --delete
