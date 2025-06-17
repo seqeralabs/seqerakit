@@ -69,7 +69,7 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml --dryrun
+          uv run seqerakit examples/yaml/e2e/*.yml --dryrun
 
       - name: create
         run: |
