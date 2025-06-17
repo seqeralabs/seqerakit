@@ -119,7 +119,7 @@ class SeqeraPlatform:
         for arg in command:
             # Handle special variables that should be escaped not interpolated to bash
             if arg in special_vars:
-                full_cmd_parts.append(f'"\\\\${arg.lstrip("$")}"')
+                full_cmd_parts.append(f'"\\\\\\${arg.lstrip("$")}"')
                 continue
 
             # Skip interpolation for explicitly escaped vars
