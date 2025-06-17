@@ -99,6 +99,14 @@ class Overwrite:
             },
         }
 
+        # Initialize the generic deletion handlers upfront
+        for block in self.generic_deletion:
+            self.block_operations[block] = {
+                "keys": ["name", "workspace"],
+                "method_args": self._get_generic_deletion_args,
+                "name_key": "name",
+            }
+
     def handle_overwrite(
         self, block, args, on_exists=OnExists.FAIL, destroy=False, overwrite=None
     ):
@@ -128,13 +136,6 @@ class Overwrite:
         # For backward compatibility
         if overwrite is not None:
             on_exists = OnExists.OVERWRITE if overwrite else OnExists.FAIL
-
-        if block in Overwrite.generic_deletion:
-            self.block_operations[block] = {
-                "keys": ["name", "workspace"],
-                "method_args": self._get_generic_deletion_args,
-                "name_key": "name",
-            }
 
         if block in self.block_operations:
             operation = self.block_operations[block]
@@ -283,17 +284,31 @@ class Overwrite:
         json_method = getattr(self.sp, "-o json")
         sp_args = []  # Default value for sp_args
 
-        # Check if block data already exists
-        if block in self.block_jsondata:
-            self.cached_jsondata = self.block_jsondata[block]
-            if block == "teams":
-                sp_args = self._get_values_from_cmd_args(args[0], keys_to_get)
-            else:
-                sp_args = self._get_values_from_cmd_args(args, keys_to_get)
+        # Get values from args
+        if block == "teams":
+            sp_args = self._get_values_from_cmd_args(args[0], keys_to_get)
+        else:
+            sp_args = self._get_values_from_cmd_args(args, keys_to_get)
+
+        # Generate cache key including workspace/organization
+        cache_key = block
+        if block in Overwrite.generic_deletion or block in {
+            "participants",
+            "labels",
+            "data-links",
+        }:
+            if sp_args.get("workspace"):
+                cache_key = f"{block}:{sp_args['workspace']}"
+        elif block in {"members", "workspaces", "teams"}:
+            if sp_args.get("organization"):
+                cache_key = f"{block}:{sp_args['organization']}"
+
+        # Check if block data already exists in cache
+        if cache_key in self.block_jsondata:
+            self.cached_jsondata = self.block_jsondata[cache_key]
         else:
             # Fetch the data if it does not exist
             if block == "teams":
-                sp_args = self._get_values_from_cmd_args(args[0], keys_to_get)
                 with self.sp.suppress_output():
                     self.cached_jsondata = json_method(
                         block, "list", "-o", sp_args["organization"]
@@ -303,23 +318,22 @@ class Overwrite:
                 "labels",
                 "data-links",
             }:
-                sp_args = self._get_values_from_cmd_args(args, keys_to_get)
                 with self.sp.suppress_output():
                     self.cached_jsondata = json_method(
                         block, "list", "-w", sp_args["workspace"]
                     )
             elif block == "members" or block == "workspaces":
-                sp_args = self._get_values_from_cmd_args(args, keys_to_get)
                 with self.sp.suppress_output():
                     self.cached_jsondata = json_method(
                         block, "list", "-o", sp_args["organization"]
                     )
             else:
-                sp_args = self._get_values_from_cmd_args(args, keys_to_get)
                 with self.sp.suppress_output():
                     self.cached_jsondata = json_method(block, "list")
 
-        self.block_jsondata[block] = self.cached_jsondata
+            # Store data with the proper cache key
+            self.block_jsondata[cache_key] = self.cached_jsondata
+
         return self.cached_jsondata, sp_args
 
     def check_resource_exists(self, name_key, sp_args):

@@ -22,6 +22,27 @@ You will need to have an account on Seqera Platform (see [Plans and pricing](htt
 
 3. [PyYAML](https://pypi.org/project/PyYAML/)
 
+### uv (Recommended)
+
+[uv](https://docs.astral.sh/uv/) is a fast Python package manager that handles dependencies and virtual environments automatically. To install `seqerakit` with uv:
+
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+2. Run seqerakit directly (this will automatically install seqerakit and its dependencies):
+
+```console
+uv run seqerakit --help
+```
+
+Or install it globally:
+
+```console
+uv tool install seqerakit
+seqerakit --help
+```
+
+**Note**: You will still need to install the [Seqera Platform CLI](https://github.com/seqeralabs/tower-cli#1-installation) separately.
+
 ### Conda
 
 You can install `seqerakit` and its dependencies via Conda. Ensure that you have the correct channels configured:
@@ -34,8 +55,8 @@ conda config --set channel_priority strict
 
 You can then create a conda environment with `seqerakit` installed using the following:
 
-```
-conda env create -n seqerakit seqerakit
+```console
+conda create -n seqerakit seqerakit
 conda activate seqerakit
 ```
 
@@ -56,6 +77,24 @@ pip install --upgrade --force-reinstall seqerakit
 ### Local development installation
 
 You can install the development branch of `seqerakit` on your local machine to test feature updates of the tool. Before proceeding, ensure that you have [Python](https://www.python.org/downloads/) and [Git](https://git-scm.com/downloads) installed on your system.
+
+#### Using uv (Recommended)
+
+1. Clone the repository and navigate to it:
+
+```bash
+git clone https://github.com/seqeralabs/seqera-kit.git
+cd seqera-kit
+git checkout dev
+```
+
+2. Run seqerakit directly from the source (uv will handle dependencies automatically):
+
+```bash
+uv run seqerakit --help
+```
+
+#### Using pip
 
 1. To install directly from pip:
 

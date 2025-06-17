@@ -17,6 +17,7 @@ This file contains helper functions for the library.
 Including handling methods for each block in the YAML file, and parsing
 methods for each block in the YAML file.
 """
+
 import yaml  # type: ignore
 from seqerakit import utils
 import sys
@@ -199,7 +200,10 @@ def parse_block(block_name, item, sp=None):
 def parse_generic_block(item, sp=None):
     cmd_args = []
     for key, value in item.items():
-        if isinstance(value, bool):
+        # Skip None values
+        if value is None:
+            continue
+        elif isinstance(value, bool):
             if value:
                 cmd_args.append(f"--{key}")
         else:
@@ -218,12 +222,15 @@ def parse_type_block(item, priority_keys=["type", "config-mode", "file-path"], s
 
     # Process priority keys first
     for key in priority_keys:
-        if key in item:
+        if key in item and item[key] is not None:
             cmd_args.append(str(item[key]))
             del item[key]  # Remove the key to avoid repeating in args
 
     for key, value in item.items():
-        if isinstance(value, bool):
+        # Skip None values
+        if value is None:
+            continue
+        elif isinstance(value, bool):
             if value:
                 cmd_args.append(f"--{key}")
         elif key == "params":
@@ -243,6 +250,9 @@ def parse_teams_block(item, sp=None):
     members_cmd_args = []
 
     for key, value in item.items():
+        # Skip None values
+        if value is None:
+            continue
         if key in cmd_keys:
             cmd_args.extend([f"--{key}", str(value)])
         elif key in members_keys and key == "members":
@@ -264,6 +274,9 @@ def parse_teams_block(item, sp=None):
 def parse_datasets_block(item, sp=None):
     cmd_args = []
     for key, value in item.items():
+        # Skip None values
+        if value is None:
+            continue
         if key == "file-path":
             cmd_args.extend(
                 [
@@ -340,7 +353,7 @@ def process_params_dict(params_dict, workspace=None, sp=None, params_file_path=N
         if sp is not None and workspace:
             params_dict = resolve_dataset_reference(params_dict, workspace, sp)
 
-        # Create temp file with resolved params
+        # Create temp file with params
         temp_file_name = utils.create_temp_yaml(
             params_dict, params_file=params_file_path
         )
@@ -357,6 +370,9 @@ def parse_pipelines_block(item, sp=None):
     repo_args = []
 
     for key, value in item.items():
+        # Skip None values
+        if value is None:
+            continue
         if key == "url":
             repo_args.extend([str(value)])
         elif key == "params":
@@ -383,6 +399,9 @@ def parse_launch_block(item, sp=None):
     repo_args = []
 
     for key, value in item.items():
+        # Skip None values
+        if value is None:
+            continue
         if key == "pipeline" or key == "url":
             repo_args.extend([str(value)])
         elif key in ["params", "params-file"]:
@@ -439,13 +458,19 @@ def handle_participants(sp, args):
 
 def handle_compute_envs(sp, args):
     json_file = any(".json" in arg for arg in args)
-
     method = getattr(sp, "compute_envs")
 
-    if json_file:
-        method("import", *args)
-    else:
-        method("add", *args)
+    # Check if primary flag is provided
+    set_primary = "--primary" in args
+    if set_primary:
+        name = args[args.index("--name") + 1]
+        workspace = args[args.index("--workspace") + 1]
+        args = [arg for arg in args if arg != "--primary"]
+
+    method("import" if json_file else "add", *args)
+
+    if set_primary:
+        method("primary", "set", "--name", name, "--workspace", workspace)
 
 
 def handle_pipelines(sp, args):
@@ -458,6 +483,29 @@ def handle_pipelines(sp, args):
             break
         elif ".json" in arg:
             method("import", *args)
+            break
+    else:  # No break occurred
+        method("add", *args)
+
+
+def handle_members(sp, args):
+    method = getattr(sp, "members")
+
+    # Check if role is specified in args
+    has_role = "--role" in args
+    role_value = None
+
+    if has_role:
+        role_index = args.index("--role")
+        role_value = args[role_index + 1]
+        args = [
+            arg for i, arg in enumerate(args) if i != role_index and i != role_index + 1
+        ]
+    method("add", *args)
+
+    # Then update with role if provided
+    if has_role and role_value:
+        method("update", *args, "--role", role_value)
 
 
 def find_name(cmd_args):

@@ -8,5 +8,5 @@ studios:
     memory: 4096
     auto-start: False
     mount-data-uris: 's3://seqeralabs-showcase'
-    lifespan: 1
+    lifespan: 8
     labels: 'project=seqerakit-e2e,organization=seqerakit-e2e,study=showcase'

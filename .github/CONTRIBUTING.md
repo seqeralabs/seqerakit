@@ -22,12 +22,48 @@ Follow the [Github flow](https://docs.github.com/en/get-started/quickstart/githu
 
 ### Developing Locally
 
-Install the dependencies locally before prior to development. You can use a virtual environment but we recommend using a conda environment as this can come with an appropriate version of the Seqera Platform CLI. To install, you can create and activate a conda environment using:
+We recommend using [uv](https://docs.astral.sh/uv/) for local development as it provides fast dependency resolution and package management.
+
+#### uv workflow (Recommended)
+
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+2. Install the project dependencies and run seqerakit directly:
+
+```console
+uv run seqerakit -h
+```
+
+This will automatically create a virtual environment, install dependencies, and run the command. For development work, you can also sync the environment explicitly:
+
+```console
+uv sync
+```
+
+Then activate the environment and work with the installed development version:
+
+```console
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+seqerakit -h
+```
+
+##### Publishing with uv
+
+For maintainers publishing releases:
+
+```console
+uv publish
+```
+
+#### Alternative: Conda workflow
+
+If you prefer using conda (which can provide a specific version of the Seqera Platform CLI), you can create and activate a conda environment using:
 
 ```console
 conda env create -f environment.yml
 conda activate seqerakit
 ```
+
+Or [install tw-cli from GitHub](https://github.com/seqeralabs/tower-cli?tab=readme-ov-file#getting-started).
 
 You can then install the local repository for development using the `pip -e` command which will install it in place without copying it to your `PYTHONPATH`. Using `--no-deps` will ignore dependencies which have already been installed via Conda. This assumes the current working directory is a clone of this repository.
 
@@ -39,13 +75,20 @@ You can then develop the code before committing changes and opening a pull reque
 
 ### pre-commit
 
-We use [pre-commit](https://pre-commit.com/) which runs [Black](https://github.com/psf/black) and [Ruff](https://github.com/astral-sh/ruff) to ensure code consistency during development. Install pre-commit and configure with `pre-commit install` which will now run before every commit ensuring code consistency.
+We use [pre-commit](https://pre-commit.com/) which runs [Black](https://github.com/psf/black) and [Ruff](https://github.com/astral-sh/ruff) to ensure code consistency during development. If using uv, pre-commit will be installed automatically when you run `uv sync`. Then configure with `pre-commit install` which will now run before every commit ensuring code consistency.
+
+If you're using the conda workflow, you may need to install pre-commit separately:
+
+```console
+pip install pre-commit
+pre-commit install
+```
 
 ## Appendix
 
 ### Debugging
 
-You can debug in VSCode for stepping through code and monitoring errors. To do so, set the Python path to the Conda environment you created earlier and add the following to the `.vscode/launch.json` folder:
+You can debug in VSCode for stepping through code and monitoring errors. To do so, set the Python path to the uv environment (or Conda environment if using the alternative workflow) and add the following to the `.vscode/launch.json` folder:
 
 ```json
 {
@@ -83,7 +126,7 @@ You may need additional settings based on your set-up. A more complete example m
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       },
-      "preLaunchTask": "pipInstall"
+      "preLaunchTask": "uvSync"
     }
   ]
 }
@@ -96,16 +139,16 @@ With an additional `.vscode/tasks.json`:
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "pipInstall",
+      "label": "uvSync",
       "type": "shell",
       "osx": {
-        "command": "pip install -e ."
+        "command": "uv sync"
       },
       "windows": {
-        "command": "pip install -e ."
+        "command": "uv sync"
       },
       "linux": {
-        "command": "pip install -e ."
+        "command": "uv sync"
       },
       "problemMatcher": [],
       "options": {

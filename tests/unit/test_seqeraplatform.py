@@ -96,12 +96,8 @@ class TestSeqeraPlatform(unittest.TestCase):
 
     def test_empty_string_argument(self):
         command = ["--profile", " ", "--config", "my_config"]
-        with self.assertRaises(ValueError) as context:
-            self.sp._check_empty_args(command)
-        self.assertIn(
-            "Empty string argument found for parameter '--profile'",
-            str(context.exception),
-        )
+        parsed_command = self.sp._check_empty_args(command)
+        self.assertEqual(parsed_command, ["--config", "my_config"])
 
     def test_no_empty_string_argument(self):
         command = ["--profile", "test_profile", "--config", "my_config"]

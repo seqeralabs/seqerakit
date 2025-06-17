@@ -4,6 +4,7 @@ from seqerakit.on_exists import OnExists
 import yaml
 import pytest
 from io import StringIO
+from unittest.mock import Mock
 
 
 # Fixture to mock a YAML file
@@ -685,3 +686,47 @@ def test_process_params_dict_with_dataset_resolution(mocker, mock_seqera_platfor
         assert written_params["input"] == "https://api.cloud.seqera.io/datasets/123"
         assert written_params["outdir"] == "s3://bucket/results"
         assert "dataset" not in written_params
+
+
+def test_handle_compute_envs_with_primary():
+    mock_sp = Mock()
+    mock_compute_envs = Mock()
+    mock_sp.compute_envs = mock_compute_envs
+
+    args = [
+        "aws-batch",
+        "forge",
+        "--name",
+        "test_computeenv",
+        "--workspace",
+        "my_organization/my_workspace",
+        "--credentials",
+        "my_credentials",
+        "--primary",
+    ]
+
+    helper.handle_compute_envs(mock_sp, args)
+
+    # Verify compute env was created first
+    expected_add_args = [
+        "aws-batch",
+        "forge",
+        "--name",
+        "test_computeenv",
+        "--workspace",
+        "my_organization/my_workspace",
+        "--credentials",
+        "my_credentials",
+    ]
+    mock_compute_envs.assert_any_call("add", *expected_add_args)
+
+    mock_compute_envs.assert_any_call(
+        "primary",
+        "set",
+        "--name",
+        "test_computeenv",
+        "--workspace",
+        "my_organization/my_workspace",
+    )
+
+    assert mock_compute_envs.call_count == 2

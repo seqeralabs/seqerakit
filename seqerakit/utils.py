@@ -141,6 +141,9 @@ def create_temp_yaml(params_dict, params_file=None):
 
     combined_params.update(params_dict)
 
+    # Filter out None values but keep empty strings
+    combined_params = {k: v for k, v in combined_params.items() if v is not None}
+
     for key, value in combined_params.items():
         if isinstance(value, str):
             resolved_value = resolve_env_var(value)
