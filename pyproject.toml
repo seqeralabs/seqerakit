@@ -1,6 +1,6 @@
 [project]
 name = "seqerakit"
-version = "0.4.9"
+version = "0.5.5"
 description = "Automate creation of Seqera Platform resources"
 readme = "README.md"
 requires-python = ">=3.8,<4"
