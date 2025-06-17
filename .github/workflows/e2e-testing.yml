@@ -22,7 +22,7 @@ on:
 jobs:
   e2e-testing:
     name:
-    if: github.repository == 'seqeralabs/seqera-kit'
+    if: github.repository == 'seqeralabs/seqerakit'
     runs-on: ubuntu-latest
 
     env:
