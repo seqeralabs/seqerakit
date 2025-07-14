@@ -230,6 +230,10 @@ def parse_type_block(item, priority_keys=["type", "config-mode", "file-path"], s
         # Skip None values
         if value is None:
             continue
+        elif key == "fusionSnapshots":
+            # Convert fusionSnapshots field (from Tower CLI exports) to --snapshots CLI flag
+            if isinstance(value, bool) and value:
+                cmd_args.append("--snapshots")
         elif isinstance(value, bool):
             if value:
                 cmd_args.append(f"--{key}")
