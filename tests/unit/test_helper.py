@@ -730,3 +730,134 @@ def test_handle_compute_envs_with_primary():
     )
 
     assert mock_compute_envs.call_count == 2
+
+
+def test_create_mock_computeevs_with_snapshots_true(mock_yaml_file):
+    """Test that snapshots: true adds --snapshots CLI flag."""
+    test_data = {
+        "compute-envs": [
+            {
+                "name": "test_computeenv",
+                "workspace": "my_organization/my_workspace",
+                "credentials": "my_credentials",
+                "type": "aws-batch",
+                "config-mode": "forge",
+                "snapshots": True,
+                "wait": "AVAILABLE",
+            }
+        ],
+    }
+
+    file_path = mock_yaml_file(test_data)
+    result = helper.parse_all_yaml([file_path])
+
+    assert "compute-envs" in result
+    actual_args = result["compute-envs"][0]["cmd_args"]
+
+    # snapshots: true should add --snapshots CLI flag
+    assert "--snapshots" in actual_args
+
+    # Other expected args should still be present
+    expected_args = {
+        "aws-batch",
+        "forge",
+        "--name",
+        "test_computeenv",
+        "--workspace",
+        "my_organization/my_workspace",
+        "--credentials",
+        "my_credentials",
+        "--wait",
+        "AVAILABLE",
+        "--snapshots",
+    }
+
+    actual_args_set = set(actual_args)
+    assert all(arg in actual_args_set for arg in expected_args)
+
+
+def test_create_mock_computeevs_with_snapshots_false(mock_yaml_file):
+    """Test that snapshots: false doesn't add --snapshots CLI flag."""
+    test_data = {
+        "compute-envs": [
+            {
+                "name": "test_computeenv",
+                "workspace": "my_organization/my_workspace",
+                "credentials": "my_credentials",
+                "type": "aws-batch",
+                "config-mode": "forge",
+                "snapshots": False,
+                "wait": "AVAILABLE",
+            }
+        ],
+    }
+
+    file_path = mock_yaml_file(test_data)
+    result = helper.parse_all_yaml([file_path])
+
+    assert "compute-envs" in result
+    actual_args = result["compute-envs"][0]["cmd_args"]
+
+    # snapshots: false should not add --snapshots CLI flag
+    assert "--snapshots" not in actual_args
+
+    # Other expected args should still be present
+    expected_args = {
+        "aws-batch",
+        "forge",
+        "--name",
+        "test_computeenv",
+        "--workspace",
+        "my_organization/my_workspace",
+        "--credentials",
+        "my_credentials",
+        "--wait",
+        "AVAILABLE",
+    }
+
+    actual_args_set = set(actual_args)
+    assert all(arg in actual_args_set for arg in expected_args)
+
+
+def test_create_mock_computeevs_with_snapshots_alternative(mock_yaml_file):
+    """Test that alternative snapshots field works."""
+    test_data = {
+        "compute-envs": [
+            {
+                "name": "test_computeenv",
+                "workspace": "my_organization/my_workspace",
+                "credentials": "my_credentials",
+                "type": "aws-batch",
+                "config-mode": "forge",
+                "snapshots": True,
+                "wait": "AVAILABLE",
+            }
+        ],
+    }
+
+    file_path = mock_yaml_file(test_data)
+    result = helper.parse_all_yaml([file_path])
+
+    assert "compute-envs" in result
+    actual_args = result["compute-envs"][0]["cmd_args"]
+
+    # snapshots: true should be converted to --snapshots CLI flag
+    assert "--snapshots" in actual_args
+
+    # Other expected args should still be present
+    expected_args = {
+        "aws-batch",
+        "forge",
+        "--name",
+        "test_computeenv",
+        "--workspace",
+        "my_organization/my_workspace",
+        "--credentials",
+        "my_credentials",
+        "--wait",
+        "AVAILABLE",
+        "--snapshots",
+    }
+
+    actual_args_set = set(actual_args)
+    assert all(arg in actual_args_set for arg in expected_args)
