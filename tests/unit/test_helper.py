@@ -861,3 +861,79 @@ def test_create_mock_computeevs_with_snapshots_alternative(mock_yaml_file):
 
     actual_args_set = set(actual_args)
     assert all(arg in actual_args_set for arg in expected_args)
+
+
+def test_create_mock_computeevs_with_json_file_containing_fusion_snapshots(
+    mock_yaml_file, tmp_path
+):
+    """Test that JSON files with fusionSnapshots work correctly when imported via file-path."""
+    # Create a JSON file with fusionSnapshots field (like Tower CLI export)
+    json_content = {
+        "region": "us-east-1",
+        "workDir": "s3://test-bucket/work",
+        "environment": [],
+        "waveEnabled": True,
+        "fusion2Enabled": True,
+        "fusionSnapshots": True,
+        "nvnmeStorageEnabled": True,
+        "forge": {
+            "type": "SPOT",
+            "minCpus": 0,
+            "maxCpus": 256,
+            "gpuEnabled": False,
+            "instanceTypes": ["c6i", "m6i", "r6i"],
+            "subnets": [],
+            "securityGroups": [],
+            "disposeOnDeletion": True,
+            "allowBuckets": ["s3://test-bucket"],
+            "efsCreate": False,
+            "dragenEnabled": False,
+            "ebsBootSize": 50,
+        },
+        "discriminator": "aws-batch",
+    }
+
+    # Write JSON file
+    json_file = tmp_path / "compute_env_with_snapshots.json"
+    import json
+
+    json_file.write_text(json.dumps(json_content, indent=2))
+
+    # YAML that references the JSON file
+    test_data = {
+        "compute-envs": [
+            {
+                "name": "test_computeenv_from_json",
+                "workspace": "my_organization/my_workspace",
+                "credentials": "my_credentials",
+                "file-path": str(json_file),
+                "wait": "AVAILABLE",
+            }
+        ],
+    }
+
+    file_path = mock_yaml_file(test_data)
+    result = helper.parse_all_yaml([file_path])
+
+    assert "compute-envs" in result
+    actual_args = result["compute-envs"][0]["cmd_args"]
+
+    # Should use 'tw compute-envs import' command with the JSON file
+    # The JSON file is passed directly to Tower CLI, so fusionSnapshots is handled there
+    expected_args = {
+        str(json_file),  # file-path comes first
+        "--name",
+        "test_computeenv_from_json",
+        "--workspace",
+        "my_organization/my_workspace",
+        "--credentials",
+        "my_credentials",
+        "--wait",
+        "AVAILABLE",
+    }
+
+    actual_args_set = set(actual_args)
+    assert all(arg in actual_args_set for arg in expected_args)
+
+    # Verify the JSON file path is the first argument (as expected by Tower CLI import)
+    assert actual_args[0] == str(json_file)
