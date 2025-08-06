@@ -266,7 +266,7 @@ For example:
 seqerakit hello-world-config.yml --cli="-Djavax.net.ssl.trustStore=/absolute/path/to/cacerts"
 ```
 
-<b>Note</b>: Use of `--verbose` option for the `tw` CLI is currently not supported by `seqerakit`. Supplying `--cli="--verbose"` will raise an error.
+<b>Note</b>: The `--verbose` option for the `tw` CLI can be used with `seqerakit`. When used with `on_exists: overwrite`, the verbose flag will be temporarily removed from overwrite operations to avoid JSON parsing conflicts, but will still be applied to other operations.
 
 ## Specify targets
 
