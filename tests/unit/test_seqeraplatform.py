@@ -171,19 +171,15 @@ class TestSeqeraPlatformCLIArgs(unittest.TestCase):
             "-Djavax.net.ssl.trustStore=/absolute/path/to/cacerts", called_command
         )
 
-    def test_cli_args_exclusion_of_verbose(self):  # TODO: remove this test once fixed
+    def test_cli_args_allow_verbose_with_json(self):
         # Add --verbose to cli_args
         verbose_args = ["--verbose"]
 
-        # Check if ValueError is raised when initializing SeqeraPlatform with --verbose
-        with self.assertRaises(ValueError) as context:
-            seqeraplatform.SeqeraPlatform(cli_args=verbose_args)
-
-        # Check the error message
-        self.assertEqual(
-            str(context.exception),
-            "--verbose is not supported as a CLI argument to seqerakit.",
-        )
+        # Check that no ValueError is raised when initializing SeqeraPlatform with --verbose and json=True
+        try:
+            seqeraplatform.SeqeraPlatform(cli_args=verbose_args, json=True)
+        except ValueError:
+            self.fail("ValueError raised when --verbose is used with JSON mode")
 
     @patch("subprocess.Popen")
     def test_info_command_construction(self, mock_subprocess):
