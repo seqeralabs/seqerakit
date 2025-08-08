@@ -16,7 +16,7 @@ You will need to have an account on Seqera Platform (see [Plans and pricing](htt
 
 `seqerakit` requires the following dependencies:
 
-1. [Seqera Platform CLI (`>=0.9.2`)](https://github.com/seqeralabs/tower-cli#1-installation)
+1. [Seqera Platform CLI (`>=0.11.0`)](https://github.com/seqeralabs/tower-cli#1-installation)
 
 2. [Python (`>=3.8`)](https://www.python.org/downloads/)
 

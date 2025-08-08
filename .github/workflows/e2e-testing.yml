@@ -4,7 +4,9 @@ run-name: Create all entities in Seqera Platform from end-to-end with seqerakit
 # It will automate the end-to-end creation all of the following entities in Seqera Platform.
 
 on:
-  pull_request_target:
+  push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -42,6 +44,8 @@ jobs:
       AWS_COMPUTE_ENV_NAME: ${{ secrets.AWS_COMPUTE_ENV_NAME }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
