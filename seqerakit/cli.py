@@ -124,6 +124,11 @@ def parse_args(args=None):
         Globally enable overwrite for all resources defined in YAML input(s).
         Deprecated: Please use '--on-exists=overwrite' instead.""",
     )
+    yaml_processing.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output for Seqera Platform CLI.",
+    )
     return parser.parse_args(args)
 
 
@@ -145,15 +150,15 @@ class BlockParser:
         self.sp = sp
         self.list_for_add_method = list_for_add_method
 
-        # Create a separate Seqera Platform client instance without
-        # JSON output to avoid mixing resource checks with creation
-        # output during overwrite operations.
-        sp_without_json = seqeraplatform.SeqeraPlatform(
-            cli_args=sp.cli_args,
+        # Create a separate Seqera Platform client instance for overwrite operations.
+        # Remove --verbose from cli_args for overwrite operations to avoid JSON parsing conflicts
+        overwrite_cli_args = [arg for arg in sp.cli_args if arg != "--verbose"]
+        sp_for_overwrite = seqeraplatform.SeqeraPlatform(
+            cli_args=overwrite_cli_args,
             dryrun=sp.dryrun,
-            json=False,
+            json=False,  # Overwrite operations use explicit -o json
         )
-        self.overwrite_method = overwrite.Overwrite(sp_without_json)
+        self.overwrite_method = overwrite.Overwrite(sp_for_overwrite)
 
     def handle_block(self, block, args, destroy=False, dryrun=False):
         # Check if delete is set to True, and call delete handler
@@ -277,6 +282,10 @@ def main(args=None):
     if options.cli_args:
         for cli_arg in options.cli_args:
             cli_args_list.extend(cli_arg.split())
+
+    # Add --verbose flag if specified
+    if options.verbose:
+        cli_args_list.append("--verbose")
 
     # Merge environment variables from env_file with existing ones
     # Will prioritize env_file values

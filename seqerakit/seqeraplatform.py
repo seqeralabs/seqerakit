@@ -44,10 +44,6 @@ class SeqeraPlatform:
 
     # Constructs a new SeqeraPlatform instance
     def __init__(self, cli_args=None, dryrun=False, print_stdout=True, json=False):
-        if cli_args and "--verbose" in cli_args:
-            raise ValueError(
-                "--verbose is not supported as a CLI argument to seqerakit."
-            )
         self.cli_args = cli_args or []
         self.dryrun = dryrun
         self.print_stdout = print_stdout

@@ -27,6 +27,7 @@ compute-envs:
     wave: False                                                                     # optional
     fargate: False                                                                  # optional
     fast-storage: False                                                             # optional
+    snapshots: False                                                                # optional, enables Fusion snapshots
     instance-types: 'c6i,r6i,m6i'                                                   # optional, comma separated list
     no-ebs-auto-scale: True                                                         # optional
     batch-execution-role: 'arn:aws:iam::123456789012:role/my-batch-execution-role'  # optional
