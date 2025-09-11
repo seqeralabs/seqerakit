@@ -36,20 +36,34 @@ def parse_yaml_block(yaml_data, block_name, sp=None):
     # Initialize an empty list to hold the lists of command line arguments.
     cmd_args_list = []
 
-    # Initialize a set to track the --name values within the block.
-    name_values = set()
+    # Initialize a set to track unique combinations of name and context
+    # For resources that can have the same name in different workspaces/organizations
+    unique_identifiers = set()
+    
+    # Define resources that can have duplicate names across different contexts
+    context_sensitive_resources = {"teams", "members", "participants"}
 
     # Iterate over each item in the block.
-    # TODO: fix for resources that can be duplicate named in an org
     for item in block:
         cmd_args = parse_block(block_name, item, sp)
         name = find_name(cmd_args)
-        if name in name_values:
+        
+        if block_name in context_sensitive_resources:
+            # For context-sensitive resources, create a unique identifier
+            # that includes both name and workspace/organization context
+            workspace = find_context_value(cmd_args, ["--workspace", "--organization"])
+            unique_id = f"{name}@{workspace}" if workspace else name
+        else:
+            # For other resources, use just the name as before
+            unique_id = name
+            
+        if unique_id in unique_identifiers:
+            context_info = f" in context '{workspace}'" if block_name in context_sensitive_resources and workspace else ""
             raise ValueError(
                 f" Duplicate name key specified in config file"
-                f" for {block_name}: {name}. Please specify a unique value."
+                f" for {block_name}: {name}{context_info}. Please specify a unique value."
             )
-        name_values.add(name)
+        unique_identifiers.add(unique_id)
 
         cmd_args_list.append(cmd_args)
 
@@ -528,6 +542,32 @@ def find_name(cmd_args):
         it = iter(args)
         for arg in it:
             if isinstance(arg, str) and arg in keys:
+                return next(it, None)
+            elif isinstance(arg, (list, tuple)):
+                result = search(arg)
+                if result is not None:
+                    return result
+        return None
+
+    return search(cmd_args.get("cmd_args", []))
+
+
+def find_context_value(cmd_args, context_keys):
+    """
+    Find and return the value associated with context keys (like --workspace, --organization)
+    in cmd_args.
+
+    Parameters:
+    - cmd_args: The command arguments dictionary
+    - context_keys: List of keys to search for (e.g., ["--workspace", "--organization"])
+
+    Returns:
+    - The value associated with the first key found, or None if none are found.
+    """
+    def search(args):
+        it = iter(args)
+        for arg in it:
+            if isinstance(arg, str) and arg in context_keys:
                 return next(it, None)
             elif isinstance(arg, (list, tuple)):
                 result = search(arg)
