@@ -159,7 +159,8 @@ def create_temp_yaml(params_dict, params_file=None):
 def resolve_env_var(value):
     """
     Resolves environment variables in a string value.
-    Handles both $VAR and ${VAR} formats.
+    Handles both $VAR and ${VAR} formats, and escaping
+    with $$ to include literal $ characters.
 
     Args:
         value (str): The value that might contain environment variables
@@ -175,10 +176,15 @@ def resolve_env_var(value):
         return value
 
     def _replace(match):
-        var_name = match.group().lstrip("$").strip("{}")
+        matched_text = match.group()
+
+        if matched_text.startswith("$$"):
+            return matched_text[1:]
+
+        var_name = matched_text.lstrip("$").strip("{}")
         var_value = os.getenv(var_name)
         if var_value is None:
             raise EnvironmentError(f"Environment variable {var_name} not found")
         return var_value
 
-    return re.sub(r"\$\{?\w+\}?", _replace, value)
+    return re.sub(r"\$\$|\$\{?\w+\}?", _replace, value)
