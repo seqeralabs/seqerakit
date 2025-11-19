@@ -1,9 +1,4 @@
-from enum import Enum, auto
+# Backward compatibility: Import from new location
+from seqerakit.core.on_exists import OnExists
 
-
-class OnExists(Enum):
-    """Enum defining behavior when a resource already exists."""
-
-    FAIL = auto()
-    IGNORE = auto()
-    OVERWRITE = auto()
+__all__ = ["OnExists"]
