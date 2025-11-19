@@ -35,7 +35,6 @@ from seqerakit.seqeraplatform import (
 )
 from seqerakit import __version__
 from seqerakit.on_exists import OnExists
-from seqerakit.resources import HANDLERS, handle_generic
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +101,16 @@ class BlockParser:
             return
 
         # Handles a block of commands by calling the appropriate function.
+        block_handler_map = {
+            "teams": (helper.handle_teams),
+            "members": (helper.handle_members),
+            "participants": (helper.handle_participants),
+            "compute-envs": (helper.handle_compute_envs),
+            "pipelines": (helper.handle_pipelines),
+            "launch": lambda sp, args: helper.handle_generic_block(
+                sp, "launch", args, method_name=None
+            ),
+        }
 
         # Determine the on_exists behavior (default to FAIL)
         on_exists = OnExists.FAIL
@@ -145,13 +154,12 @@ class BlockParser:
             if not should_continue:
                 return
 
-        # Get handler module for this resource type
-        handler_module = HANDLERS.get(block)
-        if handler_module and hasattr(handler_module, "handle"):
-            handler_module.handle(self.sp, args["cmd_args"])
+        if block in self.list_for_add_method:
+            helper.handle_generic_block(self.sp, block, args["cmd_args"])
+        elif block in block_handler_map:
+            block_handler_map[block](self.sp, args["cmd_args"])
         else:
-            # Fallback to generic handler for simple resources
-            handle_generic(self.sp, block, args["cmd_args"])
+            logger.error(f"Unrecognized resource block in YAML: {block}")
 
 
 def find_yaml_files(path_list=None):

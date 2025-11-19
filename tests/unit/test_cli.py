@@ -37,11 +37,9 @@ def mock_seqera_platform():
 @pytest.fixture
 def mock_yaml_processing():
     """Mock YAML processing functions."""
-    with (
-        patch("seqerakit.cli.find_yaml_files") as mock_find,
-        patch("seqerakit.cli.helper.parse_all_yaml") as mock_parse,
-        patch("seqerakit.cli.BlockParser") as mock_parser,
-    ):
+    with patch("seqerakit.cli.find_yaml_files") as mock_find, patch(
+        "seqerakit.cli.helper.parse_all_yaml"
+    ) as mock_parse, patch("seqerakit.cli.BlockParser") as mock_parser:
         mock_find.return_value = ["test.yaml"]
         mock_parse.return_value = {}
         yield mock_find, mock_parse, mock_parser
@@ -224,10 +222,9 @@ def test_on_exists_valid_option(
 
 def test_on_exists_invalid_option(runner):
     """Test --on-exists with invalid option exits with error."""
-    with (
-        patch("seqerakit.cli.seqeraplatform.SeqeraPlatform"),
-        patch("seqerakit.cli.find_yaml_files") as mock_find,
-    ):
+    with patch("seqerakit.cli.seqeraplatform.SeqeraPlatform"), patch(
+        "seqerakit.cli.find_yaml_files"
+    ) as mock_find:
         mock_find.return_value = ["test.yaml"]
 
         result = runner.invoke(app, ["--on-exists", "invalid", "test.yaml"])
@@ -260,11 +257,9 @@ def test_single_yaml_file(runner, mock_seqera_platform, mock_yaml_processing):
 
 def test_multiple_yaml_files(runner, mock_seqera_platform):
     """Test passing multiple YAML files."""
-    with (
-        patch("seqerakit.cli.find_yaml_files") as mock_find,
-        patch("seqerakit.cli.helper.parse_all_yaml") as mock_parse,
-        patch("seqerakit.cli.BlockParser"),
-    ):
+    with patch("seqerakit.cli.find_yaml_files") as mock_find, patch(
+        "seqerakit.cli.helper.parse_all_yaml"
+    ) as mock_parse, patch("seqerakit.cli.BlockParser"):
         mock_find.return_value = ["test1.yaml", "test2.yaml", "test3.yaml"]
         mock_parse.return_value = {}
 
@@ -286,10 +281,9 @@ def test_stdin_dash_argument(runner, mock_seqera_platform, mock_yaml_processing)
 
 def test_no_yaml_files_with_tty(runner):
     """Test error when no YAML files provided and stdin is a TTY."""
-    with (
-        patch("seqerakit.cli.seqeraplatform.SeqeraPlatform"),
-        patch("seqerakit.cli.find_yaml_files") as mock_find,
-    ):
+    with patch("seqerakit.cli.seqeraplatform.SeqeraPlatform"), patch(
+        "seqerakit.cli.find_yaml_files"
+    ) as mock_find:
         mock_find.side_effect = ValueError(
             "No YAML(s) provided and no input from stdin"
         )
@@ -313,10 +307,9 @@ def test_no_yaml_files_with_tty(runner):
 )
 def test_error_handling(runner, mock_seqera_platform, error_class, error_msg):
     """Test various error types are handled properly."""
-    with (
-        patch("seqerakit.cli.find_yaml_files") as mock_find,
-        patch("seqerakit.cli.helper.parse_all_yaml") as mock_parse,
-    ):
+    with patch("seqerakit.cli.find_yaml_files") as mock_find, patch(
+        "seqerakit.cli.helper.parse_all_yaml"
+    ) as mock_parse:
         mock_find.return_value = ["test.yaml"]
         mock_parse.side_effect = error_class(error_msg)
 
