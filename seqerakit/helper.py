@@ -18,11 +18,16 @@ Including handling methods for each block in the YAML file, and parsing
 methods for each block in the YAML file.
 """
 
-import yaml  # type: ignore
-from seqerakit import utils
-import sys
 import json
+import sys
+import warnings
+import yaml  # type: ignore
+
+from seqerakit import utils
 from seqerakit.on_exists import OnExists
+from seqerakit.resources import PARSERS
+from seqerakit.resources import compute_envs, members, participants, pipelines, teams
+from seqerakit.resources import handle_generic as _handle_generic
 
 
 def parse_yaml_block(yaml_data, block_name, sp=None):
@@ -153,19 +158,8 @@ def parse_all_yaml(file_paths, destroy=False, targets=None, sp=None):
 
 
 def parse_block(block_name, item, sp=None):
-    # Define the mapping from block names to functions.
-    block_to_function = {
-        "credentials": lambda x, s: parse_type_block(x, sp=s),
-        "compute-envs": lambda x, s: parse_type_block(x, sp=s),
-        "actions": lambda x, s: parse_type_block(x, sp=s),
-        "teams": parse_teams_block,
-        "datasets": parse_datasets_block,
-        "pipelines": lambda x, s: parse_pipelines_block(x, sp=s),
-        "launch": parse_launch_block,
-    }
-
-    # Use the generic block function as a default.
-    parse_fn = block_to_function.get(block_name, parse_generic_block)
+    # Get parser module for this resource type
+    parser_module = PARSERS.get(block_name)
 
     # Get on_exists setting with backward compatibility for overwrite
     overwrite = item.pop("overwrite", None)
@@ -188,7 +182,12 @@ def parse_block(block_name, item, sp=None):
         # Use directly if already an enum
         on_exists = on_exists_str
 
-    cmd_args = parse_fn(item, sp) if "lambda" in str(parse_fn) else parse_fn(item)
+    # Use resource-specific parser if available, otherwise generic
+    if parser_module:
+        cmd_args = parser_module.parse(item, sp)
+    else:
+        # Fallback to generic parsing for unknown resource types
+        cmd_args = parse_generic_block(item, sp)
 
     return {"cmd_args": cmd_args, "on_exists": on_exists}
 
@@ -428,87 +427,74 @@ def parse_launch_block(item, sp=None):
 
 # Handlers to call the actual sp method,based on the block name.
 # Certain blocks required special handling and combination of methods.
+# DEPRECATED: These handlers are deprecated and will be removed in v1.0.
+# Import from seqerakit.resources instead.
 
 
 def handle_generic_block(sp, block, args, method_name="add"):
-    # Generic handler for most blocks, with optional method name
-    method = getattr(sp, block)
-    if method_name is None:
-        method(*args)
-    else:
-        method(method_name, *args)
+    """DEPRECATED: Use handle_generic from seqerakit.resources._handlers instead."""
+    warnings.warn(
+        "handle_generic_block is deprecated and will be removed in v1.0. "
+        "Import from seqerakit.resources._handlers instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _handle_generic(sp, block, args, method_name)
 
 
 def handle_teams(sp, args):
-    cmd_args, members_cmd_args = args
-    sp.teams("add", *cmd_args)
-    for sublist in members_cmd_args:
-        sp.teams("members", *sublist)
+    """DEPRECATED: Use teams.handle() instead."""
+    warnings.warn(
+        "handle_teams is deprecated and will be removed in v1.0. "
+        "Import from seqerakit.resources.teams instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return teams.handle(sp, args)
 
 
 def handle_participants(sp, args):
-    # Generic handler for blocks with a key to skip
-    method = getattr(sp, "participants")
-    skip_key = "--role"
-    new_args = [
-        arg
-        for i, arg in enumerate(args)
-        if not (args[i - 1] == skip_key or arg == skip_key)
-    ]
-    method("add", *new_args)
-    method("update", *args)
+    """DEPRECATED: Use participants.handle() instead."""
+    warnings.warn(
+        "handle_participants is deprecated and will be removed in v1.0. "
+        "Import from seqerakit.resources.participants instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return participants.handle(sp, args)
 
 
 def handle_compute_envs(sp, args):
-    json_file = any(".json" in arg for arg in args)
-    method = getattr(sp, "compute_envs")
-
-    # Check if primary flag is provided
-    set_primary = "--primary" in args
-    if set_primary:
-        name = args[args.index("--name") + 1]
-        workspace = args[args.index("--workspace") + 1]
-        args = [arg for arg in args if arg != "--primary"]
-
-    method("import" if json_file else "add", *args)
-
-    if set_primary:
-        method("primary", "set", "--name", name, "--workspace", workspace)
+    """DEPRECATED: Use compute_envs.handle() instead."""
+    warnings.warn(
+        "handle_compute_envs is deprecated and will be removed in v1.0. "
+        "Import from seqerakit.resources.compute_envs instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return compute_envs.handle(sp, args)
 
 
 def handle_pipelines(sp, args):
-    method = getattr(sp, "pipelines")
-    for arg in args:
-        # Check if arg is a url or a json file.
-        # If it is, use the appropriate method and break.
-        if utils.is_url(arg):
-            method("add", *args)
-            break
-        elif ".json" in arg:
-            method("import", *args)
-            break
-    else:  # No break occurred
-        method("add", *args)
+    """DEPRECATED: Use pipelines.handle() instead."""
+    warnings.warn(
+        "handle_pipelines is deprecated and will be removed in v1.0. "
+        "Import from seqerakit.resources.pipelines instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return pipelines.handle(sp, args)
 
 
 def handle_members(sp, args):
-    method = getattr(sp, "members")
-
-    # Check if role is specified in args
-    has_role = "--role" in args
-    role_value = None
-
-    if has_role:
-        role_index = args.index("--role")
-        role_value = args[role_index + 1]
-        args = [
-            arg for i, arg in enumerate(args) if i != role_index and i != role_index + 1
-        ]
-    method("add", *args)
-
-    # Then update with role if provided
-    if has_role and role_value:
-        method("update", *args, "--role", role_value)
+    """DEPRECATED: Use members.handle() instead."""
+    warnings.warn(
+        "handle_members is deprecated and will be removed in v1.0. "
+        "Import from seqerakit.resources.members instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return members.handle(sp, args)
 
 
 def find_name(cmd_args):
