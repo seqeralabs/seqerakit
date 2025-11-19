@@ -13,21 +13,15 @@ keywords = [
     "seqera",
 ]
 authors = [
-  {name = "Esha Joshi", email = "esha.joshi@seqera.io"},
-  {name = "Adam Talbot", email = "adam.talbot@seqera.io"},
-  {name = "Harshil Patel", email = "harshil.patel@seqera.io"},
+    { name = "Esha Joshi", email = "esha.joshi@seqera.io" },
+    { name = "Adam Talbot", email = "adam.talbot@seqera.io" },
+    { name = "Harshil Patel", email = "harshil.patel@seqera.io" },
 ]
 # TODO
-maintainers = [
-  {name = "Esha Joshi", email = "esha.joshi@seqera.io"},
-]
+maintainers = [{ name = "Esha Joshi", email = "esha.joshi@seqera.io" }]
 # TODO https://pypi.org/classifiers/
-classifiers = [
-    "License :: OSI Approved :: Apache Software License"
-]
-dependencies = [
-    "pyyaml>=6.0.0",
-]
+classifiers = ["License :: OSI Approved :: Apache Software License"]
+dependencies = ["pyyaml>=6.0.0", "typer[all]>=0.15.1"]
 [project.urls]
 Homepage = "https://seqera.io/"
 Documentation = "https://docs.seqera.io/platform/24.2/seqerakit/installation"
@@ -36,7 +30,7 @@ Issues = "https://github.com/seqeralabs/seqera-kit/issues"
 Changelog = "https://github.com/seqeralabs/seqera-kit/releases"
 
 [project.scripts]
-seqerakit = "seqerakit.cli:main"
+seqerakit = "seqerakit.cli:run"
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -48,8 +42,4 @@ zip-safe = false
 include-package-data = true
 
 [dependency-groups]
-dev = [
-    "pre-commit>=3.5.0",
-    "pytest-mock>=3.14.0",
-    "pytest>=8.3.4",
-]
+dev = ["pre-commit>=3.5.0", "pytest-mock>=3.14.0", "pytest>=8.3.4"]
