@@ -375,7 +375,7 @@ def parse_pipelines_block(item, sp=None):
             continue
         if key == "url":
             repo_args.extend([str(value)])
-        elif key == "params":
+        elif key in ["params", "params-file"]:
             continue  # Handle params after the loop
         elif key == "file-path":
             repo_args.extend([str(value)])
@@ -386,7 +386,10 @@ def parse_pipelines_block(item, sp=None):
             cmd_args.extend([f"--{key}", str(value)])
 
     params_args = process_params_dict(
-        item.get("params"), workspace=item.get("workspace"), sp=sp
+        item.get("params"),
+        workspace=item.get("workspace"),
+        sp=sp,
+        params_file_path=item.get("params-file"),
     )
 
     combined_args = cmd_args + repo_args + params_args
