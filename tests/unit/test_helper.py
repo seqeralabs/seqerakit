@@ -1,6 +1,8 @@
 from unittest.mock import patch, mock_open
 from seqerakit import helper
+from seqerakit.core.yaml_processor import parse_all_yaml
 from seqerakit.on_exists import OnExists
+from seqerakit.resources import compute_envs
 import yaml
 import pytest
 from io import StringIO
@@ -68,7 +70,7 @@ def test_create_mock_organization_yaml(mock_yaml_file):
     ]
     file_path = mock_yaml_file(test_data)
     print(f"debug - file_path: {file_path}")
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "organizations" in result
     assert result["organizations"] == expected_block_output
@@ -106,7 +108,7 @@ def test_create_mock_workspace_yaml(mock_yaml_file):
     ]
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "workspaces" in result
     assert result["workspaces"] == expected_block_output
@@ -142,7 +144,7 @@ def test_create_mock_dataset_yaml(mock_yaml_file):
     ]
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "datasets" in result
     assert result["datasets"] == expected_block_output
@@ -183,7 +185,7 @@ def test_create_mock_computeevs_source_yaml(mock_yaml_file, mock_seqera_platform
     ]
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path], sp=mock_seqera_platform)
+    result = parse_all_yaml([file_path], sp=mock_seqera_platform)
 
     assert "compute-envs" in result
     assert result["compute-envs"] == expected_block_output
@@ -205,7 +207,7 @@ def test_create_mock_computeevs_cli_yaml(mock_yaml_file):
 
     # Get the actual result
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
     assert "compute-envs" in result
     actual_args = result["compute-envs"][0]["cmd_args"]
 
@@ -252,7 +254,7 @@ def test_create_mock_pipeline_add_yaml(mock_yaml_file):
     }
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "pipelines" in result
     actual_args = result["pipelines"][0]["cmd_args"]
@@ -321,7 +323,7 @@ def test_create_mock_teams_yaml(mock_yaml_file):
     ]
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "teams" in result
     assert result["teams"] == expected_block_output
@@ -341,7 +343,7 @@ def test_create_mock_members_yaml(mock_yaml_file):
         }
     ]
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "members" in result
     assert result["members"] == expected_block_output
@@ -387,7 +389,7 @@ def test_create_mock_studios_yaml(mock_yaml_file):
     ]
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
     print(f"debug - result: {result}")
     assert "studios" in result
     assert result["studios"] == expected_block_output
@@ -424,7 +426,7 @@ def test_create_mock_data_links_yaml(mock_yaml_file):
         }
     ]
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
     assert "data-links" in result
     assert result["data-links"] == expected_block_output
 
@@ -434,7 +436,7 @@ def test_empty_yaml_file(mock_yaml_file):
     file_path = mock_yaml_file(test_data)
 
     with pytest.raises(ValueError) as e:
-        helper.parse_all_yaml([file_path])
+        parse_all_yaml([file_path])
     assert f"The file '{file_path}' is empty or does not contain valid data." in str(
         e.value
     )
@@ -445,7 +447,7 @@ def test_empty_stdin_file():
     with patch("sys.stdin", StringIO("")):
         # Use '-' to indicate that stdin should be read
         with pytest.raises(ValueError) as e:
-            helper.parse_all_yaml(["-"])
+            parse_all_yaml(["-"])
         assert (
             "The input from stdin is empty or does not contain valid YAML data."
             in str(e.value)
@@ -464,7 +466,7 @@ compute-envs:
     wait: AVAILABLE
         """
     with patch("sys.stdin", StringIO(yaml_data)):
-        result = helper.parse_all_yaml(["-"])
+        result = parse_all_yaml(["-"])
 
     expected_block_output = [
         {
@@ -501,7 +503,7 @@ def test_error_type_yaml_file(mock_yaml_file):
     file_path = mock_yaml_file(test_data)
 
     with pytest.raises(ValueError) as e:
-        helper.parse_all_yaml([file_path])
+        parse_all_yaml([file_path])
     assert (
         "Please specify at least 'type' or 'file-path' for creating the resource."
         in str(e.value)
@@ -532,7 +534,7 @@ def test_error_duplicate_name_yaml_file(mock_yaml_file):
     file_path = mock_yaml_file(test_data)
 
     with pytest.raises(ValueError) as e:
-        helper.parse_all_yaml([file_path])
+        parse_all_yaml([file_path])
     assert (
         "Duplicate name key specified in config file for "
         "compute-envs: test_computeenv. Please specify "
@@ -556,9 +558,7 @@ pipelines:
     description: Pipeline 1
 """
     with patch("builtins.open", lambda f, _: StringIO(yaml_data)):
-        result = helper.parse_all_yaml(
-            ["dummy_path.yaml"], targets="organizations,workspaces"
-        )
+        result = parse_all_yaml(["dummy_path.yaml"], targets="organizations,workspaces")
 
     expected_organizations_output = [
         {
@@ -602,7 +602,7 @@ pipelines:
     description: Pipeline 1
 """
     with patch("builtins.open", lambda f, _: StringIO(yaml_data)):
-        result = helper.parse_all_yaml(["dummy_path.yaml"])
+        result = parse_all_yaml(["dummy_path.yaml"])
 
     # Check that all blocks are in the result
     assert "organizations" in result
@@ -705,7 +705,7 @@ def test_handle_compute_envs_with_primary():
         "--primary",
     ]
 
-    helper.handle_compute_envs(mock_sp, args)
+    compute_envs.handle(mock_sp, args)
 
     # Verify compute env was created first
     expected_add_args = [
@@ -749,7 +749,7 @@ def test_create_mock_computeevs_with_snapshots_true(mock_yaml_file):
     }
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "compute-envs" in result
     actual_args = result["compute-envs"][0]["cmd_args"]
@@ -793,7 +793,7 @@ def test_create_mock_computeevs_with_snapshots_false(mock_yaml_file):
     }
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "compute-envs" in result
     actual_args = result["compute-envs"][0]["cmd_args"]
@@ -836,7 +836,7 @@ def test_create_mock_computeevs_with_snapshots_alternative(mock_yaml_file):
     }
 
     file_path = mock_yaml_file(test_data)
-    result = helper.parse_all_yaml([file_path])
+    result = parse_all_yaml([file_path])
 
     assert "compute-envs" in result
     actual_args = result["compute-envs"][0]["cmd_args"]
