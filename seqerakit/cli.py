@@ -19,15 +19,13 @@ the required options for each resource based on the Seqera Platform CLI.
 """
 
 import logging
-import sys
 import os
 from enum import Enum
 from typing import Optional, List
-from pathlib import Path
 
 import typer
 
-from seqerakit import seqeraplatform, helper, overwrite
+from seqerakit import seqeraplatform, helper
 from seqerakit.seqeraplatform import (
     ResourceExistsError,
     ResourceNotFoundError,
@@ -35,7 +33,8 @@ from seqerakit.seqeraplatform import (
 )
 from seqerakit import __version__
 from seqerakit.on_exists import OnExists
-from seqerakit.resources import HANDLERS, handle_generic
+from seqerakit.core.block_parser import BlockParser
+from seqerakit.utils.file_discovery import find_yaml_files
 
 logger = logging.getLogger(__name__)
 
@@ -62,138 +61,6 @@ def version_callback(value: bool):
     if value:
         typer.echo(f"seqerakit {__version__}")
         raise typer.Exit()
-
-
-class BlockParser:
-    """
-    Manages blocks of commands defined in a configuration file and calls appropriate
-    functions for each block for custom handling of command-line arguments to _tw_run().
-    """
-
-    def __init__(self, sp, list_for_add_method):
-        """
-        Initializes a BlockParser instance.
-
-        Args:
-        sp: A Seqera Platform class instance.
-        list_for_add_method: A list of blocks that need to be
-        handled by the 'add' method.
-        """
-        self.sp = sp
-        self.list_for_add_method = list_for_add_method
-
-        # Create a separate Seqera Platform client instance for overwrite operations.
-        # Remove --verbose from cli_args for overwrite operations to avoid JSON parsing conflicts
-        overwrite_cli_args = [arg for arg in sp.cli_args if arg != "--verbose"]
-        sp_for_overwrite = seqeraplatform.SeqeraPlatform(
-            cli_args=overwrite_cli_args,
-            dryrun=sp.dryrun,
-            json=False,  # Overwrite operations use explicit -o json
-        )
-        self.overwrite_method = overwrite.Overwrite(sp_for_overwrite)
-
-    def handle_block(self, block, args, destroy=False, dryrun=False):
-        # Check if delete is set to True, and call delete handler
-        if destroy:
-            logging.debug(" The '--delete' flag has been specified.\n")
-            self.overwrite_method.handle_overwrite(
-                block, args["cmd_args"], on_exists=OnExists.FAIL, destroy=True
-            )
-            return
-
-        # Handles a block of commands by calling the appropriate function.
-
-        # Determine the on_exists behavior (default to FAIL)
-        on_exists = OnExists.FAIL
-
-        # Check for global settings (they override block-level settings)
-        if (
-            hasattr(self.sp, "global_on_exists")
-            and self.sp.global_on_exists is not None
-        ):
-            on_exists = self.sp.global_on_exists
-        elif getattr(self.sp, "overwrite", False):
-            logging.warning(
-                "The '--overwrite' flag is deprecated. "
-                "Please use '--on-exists=overwrite' instead."
-            )
-            on_exists = OnExists.OVERWRITE
-
-        # If no global setting, use block-level setting if provided
-        elif "on_exists" in args:
-            on_exists_value = args["on_exists"]
-            if isinstance(on_exists_value, OnExists):
-                on_exists = on_exists_value
-            elif isinstance(on_exists_value, str):
-                try:
-                    on_exists = OnExists[on_exists_value.upper()]
-                except KeyError as err:
-                    logging.error(f"Invalid on_exists option: {on_exists_value}")
-                    raise err
-
-        if not dryrun:
-            # Use on_exists.name.lower() only if it's an enum, otherwise use the string
-            on_exists_str = (
-                on_exists.name.lower() if hasattr(on_exists, "name") else on_exists
-            )
-            logging.debug(f" on_exists is set to '{on_exists_str}' for {block}\n")
-            should_continue = self.overwrite_method.handle_overwrite(
-                block, args["cmd_args"], on_exists=on_exists
-            )
-
-            # If on_exists is "ignore" and resource exists, skip creation
-            if not should_continue:
-                return
-
-        # Get handler module for this resource type
-        handler_module = HANDLERS.get(block)
-        if handler_module and hasattr(handler_module, "handle"):
-            handler_module.handle(self.sp, args["cmd_args"])
-        else:
-            # Fallback to generic handler for simple resources
-            handle_generic(self.sp, block, args["cmd_args"])
-
-
-def find_yaml_files(path_list=None):
-    """
-    Find YAML files in the given path list.
-
-    Args:
-        path_list (list, optional): A list of paths to search for YAML files.
-
-    Returns:
-        list: A list of YAML files found in the given path list or stdin.
-    """
-
-    yaml_files = []
-    yaml_exts = ["**/*.[yY][aA][mM][lL]", "**/*.[yY][mM][lL]"]
-
-    if not path_list:
-        if sys.stdin.isatty():
-            raise ValueError(
-                "No YAML(s) provided and no input from stdin. Please provide at least "
-                "one YAML configuration file or pipe input from stdin."
-            )
-        return [sys.stdin]
-
-    for path in path_list:
-        if path == "-":
-            yaml_files.append(path)
-            continue
-
-        path = Path(path)
-        if not path.exists():
-            raise FileExistsError(f"File {path} does not exist")
-
-        if path.is_file():
-            yaml_files.append(str(path))
-        elif path.is_dir():
-            for ext in yaml_exts:
-                yaml_files.extend(str(p) for p in path.rglob(ext))
-        else:
-            yaml_files.append(str(path))
-
-    return yaml_files
 
 
 @app.command()
