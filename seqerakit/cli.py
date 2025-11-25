@@ -260,6 +260,12 @@ def main(
         help="Specify the resources to be targeted for creation in a YAML file through "
         "a comma-separated list (e.g. '--targets=teams,participants').",
     ),
+    target: Optional[List[str]] = typer.Option(
+        None,
+        "--target",
+        help="Specify a resource and optionally a name to target "
+        "(e.g. '--target pipelines=my-pipeline'). Can be specified multiple times.",
+    ),
     env_file: Optional[str] = typer.Option(
         None,
         "--env-file",
@@ -355,7 +361,7 @@ def main(
     # and get a dictionary of command line arguments
     try:
         cmd_args_dict = helper.parse_all_yaml(
-            yaml_files, destroy=delete, targets=targets, sp=sp
+            yaml_files, destroy=delete, targets=targets, target=target, sp=sp
         )
         for block, args_list in cmd_args_dict.items():
             for args in args_list:

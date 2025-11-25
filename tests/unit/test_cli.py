@@ -90,6 +90,7 @@ def test_help_flag(runner):
         "--delete",
         "--cli",
         "--targets",
+        "--target",
         "--env-file",
         "--on-exists",
         "--overwrite",
@@ -221,6 +222,39 @@ def test_targets_option(runner, mock_seqera_platform, mock_yaml_processing):
     mock_parse.assert_called_once()
     call_kwargs = mock_parse.call_args[1]
     assert call_kwargs["targets"] == "teams,workspaces"
+
+
+def test_target_option(runner, mock_seqera_platform, mock_yaml_processing):
+    """Test --target option is passed to parse_all_yaml."""
+    mock_find, mock_parse, mock_parser = mock_yaml_processing
+
+    result = runner.invoke(app, ["--target", "pipelines=my-pipeline", "test.yaml"])
+
+    assert result.exit_code == 0
+    mock_parse.assert_called_once()
+    call_kwargs = mock_parse.call_args[1]
+    assert call_kwargs["target"] == ["pipelines=my-pipeline"]
+
+
+def test_multiple_target_options(runner, mock_seqera_platform, mock_yaml_processing):
+    """Test multiple --target options are passed to parse_all_yaml."""
+    mock_find, mock_parse, mock_parser = mock_yaml_processing
+
+    result = runner.invoke(
+        app,
+        [
+            "--target",
+            "pipelines=pipeline1",
+            "--target",
+            "compute-envs=ce1",
+            "test.yaml",
+        ],
+    )
+
+    assert result.exit_code == 0
+    mock_parse.assert_called_once()
+    call_kwargs = mock_parse.call_args[1]
+    assert call_kwargs["target"] == ["pipelines=pipeline1", "compute-envs=ce1"]
 
 
 # OnExists Tests
