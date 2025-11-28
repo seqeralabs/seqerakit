@@ -1,5 +1,5 @@
 from pydantic import Field
-from typing import Optional
+from typing import Optional, List
 from .base import SeqeraResource
 
 class Pipeline(SeqeraResource):
@@ -24,7 +24,35 @@ class Pipeline(SeqeraResource):
     user_secrets: Optional[str] = Field(default=None, alias="user-secrets")
     workspace_secrets: Optional[str] = Field(default=None, alias="workspace-secrets")
 
-        
+    def to_cli_args(self) -> List[str]:
+        """
+        Override to handle URL as positional argument.
+        Format: tw pipelines add <url> --name <name> --workspace <workspace> ...
+
+        Note: params and params-file are excluded here as they require special handling
+        (dataset resolution, temp file creation) in the CommandBuilder.
+        """
+        args = []
+        data = self.input_dict().copy()
+
+        # URL is the first positional argument
+        if "url" in data:
+            args.append(data.pop("url"))
+
+        # Remove params-related fields - they'll be handled by the builder
+        data.pop("params", None)
+        data.pop("params-file", None)
+
+        # Rest as standard options
+        for key, value in data.items():
+            if isinstance(value, bool):
+                if value:
+                    args.append(f"--{key}")
+            elif value is not None:
+                args.extend([f"--{key}", str(value)])
+
+        return args
+
     @classmethod
     def from_api_response(cls, data: dict) -> "Pipelines":
         """

@@ -1,5 +1,5 @@
 from pydantic import Field, field_validator
-from typing import Optional
+from typing import Optional, List
 from seqerakit.models.base import SeqeraResource
 
 class ComputeEnv(SeqeraResource):
@@ -42,6 +42,33 @@ class ComputeEnv(SeqeraResource):
         if isinstance(v, str):
             return [item.strip() for item in v.split(',') if item.strip()]
         return v
+
+    def to_cli_args(self) -> List[str]:
+        """
+        Override to handle type and config-mode as positional arguments.
+        Format: tw compute-envs add <type> <config-mode> --name <name> ...
+        """
+        args = []
+        data = self.input_dict().copy()
+
+        # Type and config-mode are positional arguments
+        if "type" in data:
+            args.append(data.pop("type"))
+        if "config-mode" in data:
+            args.append(data.pop("config-mode"))
+
+        # Rest as standard options
+        for key, value in data.items():
+            if isinstance(value, bool):
+                if value:
+                    args.append(f"--{key}")
+            elif isinstance(value, list):
+                # Handle lists (instance-types, subnets, etc.)
+                args.extend([f"--{key}", ",".join(str(v) for v in value)])
+            elif value is not None:
+                args.extend([f"--{key}", str(value)])
+
+        return args
 
     @classmethod
     def from_cli_response(cls, data: dict) -> "ComputeEnv":

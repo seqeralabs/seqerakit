@@ -39,9 +39,10 @@ from seqerakit.models import (
     Studio,
     Launch,
 )
+from seqerakit.models.base import SeqeraResource
 from pydantic import ValidationError
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Union, List, Tuple
+from typing import Dict, Any, Union, List, Tuple, Optional, Type
 from dataclasses import dataclass
 
 
@@ -51,12 +52,31 @@ class Command:
     subcommand: str
     args: List[str]
     method: str = "add"  # Default method
-    
+
     def to_args_list(self) -> List[str]:
         """Convert to list of arguments for subprocess"""
         if self.method:
             return [self.subcommand, self.method] + self.args
         return [self.subcommand] + self.args
+
+    def execute(self, sp):
+        """
+        Execute this command using a SeqeraPlatform instance.
+
+        Args:
+            sp: SeqeraPlatform instance to execute the command with
+
+        Returns:
+            The result of executing the command
+        """
+        # Get the subcommand method from SeqeraPlatform
+        subcommand_method = getattr(sp, self.subcommand.replace("-", "_"))
+
+        # Execute with or without method depending on configuration
+        if self.method:
+            return subcommand_method(self.method, *self.args)
+        else:
+            return subcommand_method(*self.args)
 
 
 class ArgumentBuilder:
@@ -88,256 +108,348 @@ class ArgumentBuilder:
 
 
 class CommandBuilder(ABC):
-    """Base class for building commands from YAML data"""
-    
+    """Base class for building commands from Pydantic models"""
+
+    def __init__(self, subcommand: str, model_class: Type[SeqeraResource], method: str = "add"):
+        self.subcommand = subcommand
+        self.model_class = model_class
+        self.method = method
+
     @abstractmethod
-    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
-        """Build a command from YAML item"""
+    def build_command(self, model_instance: SeqeraResource, sp=None) -> Command:
+        """Build a command from validated Pydantic model instance"""
         pass
+
+    def build_command_from_dict(self, item: Dict[str, Any], sp=None) -> Command:
+        """
+        Fallback method for building commands directly from dicts (for file imports).
+        This bypasses Pydantic validation. Can be overridden by subclasses.
+        """
+        # Default implementation: strip metadata and convert to args
+        data = {k: v for k, v in item.items() if k not in ["on_exists", "overwrite"]}
+        args = self._dict_to_args(data)
+        return Command(subcommand=self.subcommand, method=self.method, args=args)
+
+    def _dict_to_args(self, data: Dict[str, Any]) -> List[str]:
+        """Convert a dictionary to CLI arguments"""
+        builder = ArgumentBuilder()
+        for key, value in data.items():
+            if isinstance(value, bool):
+                if value:  # Only add flag if True
+                    builder.add_flag(key, value)
+            elif value is not None:
+                builder.add_option(key, value)
+        return builder.build()
 
 
 class GenericCommandBuilder(CommandBuilder):
-    def __init__(self, subcommand: str, method: str = "add"):
-        self.subcommand = subcommand
-        self.method = method
-    
-    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
-        builder = ArgumentBuilder()
-        
-        for key, value in item.items():
-            if isinstance(value, bool):
-                builder.add_flag(key, value)
-            else:
-                builder.add_option(key, value)
-        
+    """Generic builder that uses model's to_cli_args() method"""
+
+    def build_command(self, model_instance: SeqeraResource, sp=None) -> Command:
+        # Simply delegate to the model's to_cli_args() method
+        args = model_instance.to_cli_args()
+
         return Command(
             subcommand=self.subcommand,
             method=self.method,
-            args=builder.build()
+            args=args
         )
 
 
 class TypeBasedCommandBuilder(CommandBuilder):
-    """For resources that need type/config-mode/file-path as positional args"""
-    
-    def __init__(self, subcommand: str):
-        self.subcommand = subcommand
-    
-    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
-        builder = ArgumentBuilder()
-        item_copy = item.copy()
-        
-        # Ensure at least one of 'type' or 'file-path' is present
-        if not any(key in item for key in ["type", "file-path"]):
-            raise ValueError("Please specify at least 'type' or 'file-path' for creating the resource.")
-        
-        # Handle priority arguments first
-        priority_keys = ["type", "config-mode", "file-path"]
-        for key in priority_keys:
-            if key in item_copy:
-                builder.add_positional(item_copy.pop(key))
-        
-        # Handle remaining arguments
-        for key, value in item_copy.items():
-            if isinstance(value, bool):
-                builder.add_flag(key, value)
-            elif key == "params":
-                temp_file = utils.create_temp_yaml(value)
-                builder.add_option("params-file", temp_file)
-            else:
-                builder.add_option(key, value)
-        
-        # Determine method based on file type
-        method = "import" if any(".json" in str(v) for v in item.values()) else "add"
-        
+    """For resources that need type/config-mode/file-path as positional args (credentials, compute-envs, actions)"""
+
+    def build_command(self, model_instance: SeqeraResource, sp=None) -> Command:
+        # Use the model's to_cli_args() which already handles positional arguments
+        args = model_instance.to_cli_args()
+
+        # Handle params specially if present (convert dict to temp file)
+        data = model_instance.input_dict()
+        if "params" in data:
+            params = data["params"]
+            temp_file = utils.create_temp_yaml(params)
+            args.extend(["--params-file", temp_file])
+
+        # Determine method based on whether file-path contains .json
+        method = "import" if any(".json" in str(v) for v in data.values()) else "add"
+
         return Command(
             subcommand=self.subcommand,
             method=method,
-            args=builder.build()
+            args=args
         )
+
+    def build_command_from_dict(self, item: Dict[str, Any], sp=None) -> Command:
+        """Override for file-path imports"""
+        builder = ArgumentBuilder()
+        data = {k: v for k, v in item.items() if k not in ["on_exists", "overwrite"]}
+
+        # Handle priority arguments first as positional
+        priority_keys = ["type", "config-mode", "file-path"]
+        for key in priority_keys:
+            if key in data:
+                builder.add_positional(data.pop(key))
+
+        # Handle remaining arguments
+        for key, value in data.items():
+            if isinstance(value, bool):
+                if value:
+                    builder.add_flag(key, value)
+            elif value is not None:
+                builder.add_option(key, value)
+
+        method = "import" if any(".json" in str(v) for v in item.values()) else "add"
+        return Command(subcommand=self.subcommand, method=method, args=builder.build())
 
 
 class TeamsCommandBuilder(CommandBuilder):
     """Special handling for teams with members"""
-    
-    def build_command(self, item: Dict[str, Any], sp=None) -> Union[Command, Tuple[Command, List[Command]]]:
-        builder = ArgumentBuilder()
-        cmd_keys = ["name", "organization", "description"]
-        members_commands = []
-        
-        # Build main team command
-        for key, value in item.items():
-            if key in cmd_keys:
-                builder.add_option(key, value)
-            elif key == "members":
-                # Build member commands
-                for member in value:
-                    member_builder = ArgumentBuilder()
-                    member_builder.add_option("team", item["name"])
-                    member_builder.add_option("organization", item["organization"])
-                    member_builder.add_positional("add")
-                    member_builder.add_option("member", member)
-                    
-                    members_commands.append(Command(
-                        subcommand="teams",
-                        method="members",
-                        args=member_builder.build()
-                    ))
-        
+
+    def build_command(self, model_instance: SeqeraResource, sp=None) -> Union[Command, Tuple[Command, List[Command]]]:
+        data = model_instance.input_dict()
+
+        # Extract members for separate handling
+        members = data.get("members", [])
+
+        # Get base args for team (excluding members)
+        # Create a temporary copy without members for to_cli_args
+        data_without_members = {k: v for k, v in data.items() if k != "members"}
+
+        # Manually build args since we need to exclude members
+        args = []
+        for key, value in data_without_members.items():
+            if isinstance(value, bool):
+                if value:
+                    args.append(f"--{key}")
+            elif value is not None:
+                args.extend([f"--{key}", str(value)])
+
         main_command = Command(
             subcommand="teams",
             method="add",
-            args=builder.build()
+            args=args
         )
-        
-        if members_commands:
+
+        # Build member commands if members exist
+        if members:
+            members_commands = []
+            team_name = data.get("name")
+            org_name = data.get("organization")
+
+            for member in members:
+                member_args = [
+                    "--team", team_name,
+                    "--organization", org_name,
+                    "add",
+                    "--member", member
+                ]
+
+                members_commands.append(Command(
+                    subcommand="teams",
+                    method="members",
+                    args=member_args
+                ))
+
             return (main_command, members_commands)
+
         return main_command
 
 
 class PipelineCommandBuilder(CommandBuilder):
-    """For pipelines and launch commands"""
-    
-    def __init__(self, subcommand: str):
-        self.subcommand = subcommand
-    
-    def build_command(self, item: Dict[str, Any], sp=None) -> Command:
-        builder = ArgumentBuilder()
-        item_copy = item.copy()
-        
-        # Handle URL/file-path as positional
-        if "url" in item_copy:
-            builder.add_positional(item_copy.pop("url"))
-        elif "file-path" in item_copy:
-            builder.add_positional(item_copy.pop("file-path"))
-        elif "pipeline" in item_copy:  # For launch
-            builder.add_positional(item_copy.pop("pipeline"))
-        
-        # Handle params directly without converting to flat list first
-        params = item_copy.pop("params", None)
-        params_file = item_copy.pop("params-file", None)
-        
+    """For pipelines and launch commands with special params handling"""
+
+    def build_command(self, model_instance: SeqeraResource, sp=None) -> Command:
+        # Start with the model's to_cli_args() which handles URL/pipeline as positional
+        args = model_instance.to_cli_args()
+
+        # Get original data for params handling
+        data = model_instance.input_dict()
+
+        # Handle params specially - resolve dataset reference and create temp file
+        params = data.get("params")
+        params_file = data.get("params-file")
+
         if params:
-            # Resolve dataset reference if needed
-            if sp is not None and item.get("workspace"):
-                params = resolve_dataset_reference(params, item["workspace"], sp)
-            
+            # Resolve dataset reference if sp and workspace are provided
+            workspace = data.get("workspace")
+            if sp is not None and workspace:
+                params = resolve_dataset_reference(params, workspace, sp)
+
             # Create temp file and add params-file option
+            temp_file = utils.create_temp_yaml(params, params_file=params_file)
+            args.extend(["--params-file", temp_file])
+        elif params_file:
+            args.extend(["--params-file", params_file])
+
+        # Determine method (import for JSON files, add otherwise)
+        method = "import" if any(".json" in str(v) for v in data.values()) else "add"
+
+        return Command(
+            subcommand=self.subcommand,
+            method=method,
+            args=args
+        )
+
+    def build_command_from_dict(self, item: Dict[str, Any], sp=None) -> Command:
+        """Override for file-path imports"""
+        builder = ArgumentBuilder()
+        data = {k: v for k, v in item.items() if k not in ["on_exists", "overwrite"]}
+
+        # Handle URL/file-path/pipeline as positional
+        positional_keys = ["url", "file-path", "pipeline"]
+        for key in positional_keys:
+            if key in data:
+                builder.add_positional(data.pop(key))
+                break
+
+        # Handle params
+        params = data.pop("params", None)
+        params_file = data.pop("params-file", None)
+
+        if params:
+            workspace = data.get("workspace")
+            if sp is not None and workspace:
+                params = resolve_dataset_reference(params, workspace, sp)
             temp_file = utils.create_temp_yaml(params, params_file=params_file)
             builder.add_option("params-file", temp_file)
         elif params_file:
             builder.add_option("params-file", params_file)
-        
-        # Handle remaining options
-        for key, value in item_copy.items():
+
+        # Handle remaining
+        for key, value in data.items():
             if isinstance(value, bool):
-                builder.add_flag(key, value)
-            else:
+                if value:
+                    builder.add_flag(key, value)
+            elif value is not None:
                 builder.add_option(key, value)
-        
-        # Determine method
+
         method = "import" if any(".json" in str(v) for v in item.values()) else "add"
-        
-        return Command(
-            subcommand=self.subcommand,
-            method=method,
-            args=builder.build()
-        )
+        return Command(subcommand=self.subcommand, method=method, args=builder.build())
 
 
-# Registry of command builders
+# Model mapping for validation
+MODEL_MAP: Dict[str, Type[SeqeraResource]] = {
+    "pipelines": Pipeline,
+    "compute-envs": ComputeEnv,
+    "organizations": Organization,
+    "workspaces": Workspace,
+    "teams": Team,
+    "labels": Label,
+    "members": Member,
+    "participants": Participant,
+    "credentials": Credential,
+    "datasets": Dataset,
+    "secrets": Secret,
+    "actions": Action,
+    "data-links": DataLink,
+    "studios": Studio,
+    "launch": Launch,
+}
+
+# Registry of command builders with their associated models
 COMMAND_BUILDERS: Dict[str, CommandBuilder] = {
-    "credentials": TypeBasedCommandBuilder("credentials"),
-    "compute-envs": TypeBasedCommandBuilder("compute-envs"),
-    "actions": TypeBasedCommandBuilder("actions"),
-    "teams": TeamsCommandBuilder(),
-    "pipelines": PipelineCommandBuilder("pipelines"),
-    "launch": PipelineCommandBuilder("launch"),
-    "datasets": GenericCommandBuilder("datasets"),
-    "workspaces": GenericCommandBuilder("workspaces"),
-    "organizations": GenericCommandBuilder("organizations"),
-    "labels": GenericCommandBuilder("labels"),
-    "members": GenericCommandBuilder("members"),
-    "participants": GenericCommandBuilder("participants"),
-    "secrets": GenericCommandBuilder("secrets"),
-    "data-links": GenericCommandBuilder("data-links"),
-    "studios": GenericCommandBuilder("studios"),
+    "credentials": TypeBasedCommandBuilder("credentials", Credential),
+    "compute-envs": TypeBasedCommandBuilder("compute-envs", ComputeEnv),
+    "actions": TypeBasedCommandBuilder("actions", Action),
+    "teams": TeamsCommandBuilder("teams", Team),
+    "pipelines": PipelineCommandBuilder("pipelines", Pipeline),
+    "launch": PipelineCommandBuilder("launch", Launch),
+    "datasets": GenericCommandBuilder("datasets", Dataset),
+    "workspaces": GenericCommandBuilder("workspaces", Workspace),
+    "organizations": GenericCommandBuilder("organizations", Organization),
+    "labels": GenericCommandBuilder("labels", Label),
+    "members": GenericCommandBuilder("members", Member),
+    "participants": GenericCommandBuilder("participants", Participant),
+    "secrets": GenericCommandBuilder("secrets", Secret),
+    "data-links": GenericCommandBuilder("data-links", DataLink),
+    "studios": GenericCommandBuilder("studios", Studio),
 }
 
 
-def validate_yaml_block(block_name: str, items: list) -> list:
-    """Validate YAML using Pydantic models defined in models/"""
-    model_map = {
-        "pipelines": Pipeline,
-        "compute-envs": ComputeEnv,
-        "organizations": Organization,
-        "workspaces": Workspace,
-        "teams": Team,
-        "labels": Label,
-        "members": Member,
-        "participants": Participant,
-        "credentials": Credential,
-        "datasets": Dataset,
-        "secrets": Secret,
-        "actions": Action,
-        "data-links": DataLink,
-        "studios": Studio,
-        "launch": Launch,
+def validate_and_build_model(block_name: str, item: Dict[str, Any]) -> Tuple[SeqeraResource, Dict[str, Any]]:
+    """
+    Validate a single YAML item using its Pydantic model and return the model instance.
+
+    Returns:
+        Tuple of (validated_model_instance, metadata_dict)
+        metadata_dict contains on_exists and overwrite settings
+    """
+    if block_name not in MODEL_MAP:
+        raise ValueError(f"No model defined for block type: {block_name}")
+
+    model_class = MODEL_MAP[block_name]
+
+    # Extract metadata that shouldn't be validated by the model
+    metadata = {
+        "on_exists": item.get("on_exists"),
+        "overwrite": item.get("overwrite"),
     }
 
-    if block_name not in model_map:
-        return items  # No validation for unsupported types
+    # Skip validation for items with file-path (JSON import)
+    # For these, create a minimal model instance just for structure
+    if "file-path" in item:
+        # Create a pass-through dict-based approach for file imports
+        # We'll handle this specially in parse_block
+        return None, metadata
 
-    model_class = model_map[block_name]
-    validated_items = []
-
-    for item in items:
-        # Preserve on_exists and overwrite fields
-        on_exists = item.get("on_exists")
-        overwrite = item.get("overwrite")
-
-        # Skip validation for items with file-path (JSON import)
-        if "file-path" in item:
-            validated_items.append(item)
-            continue
-
-        try:
-            validated_item = model_class(**item)
-            result = validated_item.input_dict()
-
-            # Re-add on_exists/overwrite if they were present
-            if on_exists is not None:
-                result["on_exists"] = on_exists
-            if overwrite is not None:
-                result["overwrite"] = overwrite
-
-            validated_items.append(result)
-        except ValidationError as e:
-            raise ValueError(f"Validation error in {block_name}: {e}")
-
-    return validated_items
+    try:
+        # Create and validate the model instance
+        validated_model = model_class(**item)
+        return validated_model, metadata
+    except ValidationError as e:
+        raise ValueError(f"Validation error in {block_name}: {e}")
 
 
 def parse_block(block_name: str, item: Dict[str, Any], sp=None) -> Dict[str, Any]:
-    """Parse a block using command builders"""
-    builder = COMMAND_BUILDERS.get(block_name, GenericCommandBuilder(block_name))
-    
-    # Handle on_exists/overwrite
-    item_copy = item.copy()
-    overwrite = item_copy.pop("overwrite", None)
-    on_exists_str = item_copy.pop("on_exists", "fail")
-    
+    """
+    Parse a YAML block item into a command using Pydantic models and command builders.
+
+    Args:
+        block_name: The type of resource (e.g., "pipelines", "teams")
+        item: The raw YAML item dictionary
+        sp: Optional SeqeraPlatform instance for API calls
+
+    Returns:
+        Dictionary with 'cmd_args' (Command object) and 'on_exists' (OnExists enum)
+    """
+    # Validate and build Pydantic model
+    model_instance, metadata = validate_and_build_model(block_name, item)
+
+    # Handle on_exists/overwrite from metadata
+    overwrite = metadata.get("overwrite")
+    on_exists_str = metadata.get("on_exists")
+
+    # Determine on_exists value with proper default
     if overwrite is not None:
         on_exists = OnExists.OVERWRITE if overwrite else OnExists.FAIL
-    elif isinstance(on_exists_str, str):
-        try:
-            on_exists = OnExists[on_exists_str.upper()]
-        except KeyError:
-            raise ValueError(f"Invalid on_exists option: '{on_exists_str}'")
+    elif on_exists_str is not None:
+        if isinstance(on_exists_str, str):
+            try:
+                on_exists = OnExists[on_exists_str.upper()]
+            except KeyError:
+                raise ValueError(f"Invalid on_exists option: '{on_exists_str}'")
+        else:
+            on_exists = on_exists_str
     else:
-        on_exists = on_exists_str
-    
-    command_result = builder.build_command(item_copy, sp)
+        # Default to FAIL if neither overwrite nor on_exists is specified
+        on_exists = OnExists.FAIL
+
+    # Get the appropriate command builder
+    builder = COMMAND_BUILDERS.get(block_name)
+    if not builder:
+        # Fallback to generic builder if no specific builder exists
+        if block_name in MODEL_MAP:
+            builder = GenericCommandBuilder(block_name, MODEL_MAP[block_name])
+        else:
+            raise ValueError(f"No command builder found for: {block_name}")
+
+    # Handle file-path imports specially (no validation, pass through)
+    if model_instance is None:
+        # For file imports, build command directly from dict
+        command_result = builder.build_command_from_dict(item, sp)
+    else:
+        # Use validated Pydantic model
+        command_result = builder.build_command(model_instance, sp)
 
     return {
         "cmd_args": command_result,
@@ -346,30 +458,42 @@ def parse_block(block_name: str, item: Dict[str, Any], sp=None) -> Dict[str, Any
 
 
 def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
-    # Get the name of the specified block/resource.
+    """
+    Parse a YAML block into a list of commands.
+
+    Args:
+        yaml_data: The full YAML data dictionary
+        block_name: The resource type to process (e.g., "pipelines", "teams")
+        sp: Optional SeqeraPlatform instance for API calls
+        name_filter: Optional list of names to filter resources
+
+    Returns:
+        Tuple of (block_name, list of command dictionaries)
+    """
+    # Get the specified block/resource
     block = yaml_data.get(block_name)
 
-    # If block is not found in the YAML, return an empty list.
+    # If block is not found in the YAML, return an empty list
     if not block:
         return block_name, []
 
-    # Validate the block using Pydantic models
-    validated_block = validate_yaml_block(block_name, block)
-
-    # Initialize an empty list to hold the lists of command line arguments.
+    # Initialize list to hold command line arguments
     cmd_args_list = []
 
-    # Initialize a set to track the --name values within the block.
+    # Track name values to detect duplicates
     name_values = set()
 
-    # Iterate over each validated item in the block.
-    for item in validated_block:
+    # Iterate over each item in the block
+    for item in block:
         # Filter by name if name_filter is specified
         item_name = item.get("name") or item.get("user") or item.get("email")
         if name_filter and item_name not in name_filter:
             continue
 
+        # Parse the item using Pydantic validation and command builders
         cmd_args = parse_block(block_name, item, sp)
+
+        # Check for duplicate names
         name = find_name(cmd_args)
         if name in name_values:
             raise ValueError(
@@ -380,7 +504,7 @@ def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
 
         cmd_args_list.append(cmd_args)
 
-    # Return the block name and list of command line argument lists.
+    # Return the block name and list of command line argument lists
     return block_name, cmd_args_list
 
 
@@ -522,6 +646,9 @@ def process_params_dict(params_dict, workspace=None, sp=None, params_file_path=N
     """
     Process parameters dictionary, resolving dataset references if needed.
 
+    NOTE: This function is kept for backward compatibility with tests.
+    New code should use the integrated params handling in PipelineCommandBuilder.
+
     Args:
         params_dict (dict): Parameters dictionary to process
         workspace (str, optional): Workspace for resolving dataset references
@@ -547,6 +674,8 @@ def process_params_dict(params_dict, workspace=None, sp=None, params_file_path=N
         params_args.extend(["--params-file", params_file_path])
 
     return params_args
+
+
 
 
 def find_name(cmd_args):
@@ -593,18 +722,16 @@ def find_name(cmd_args):
 
 def handle_generic_block(sp, block, cmd_args, method_name="add"):
     """Generic handler for most blocks, with optional method name"""
-    method = getattr(sp, block)
-    # Extract args from Command object
     if isinstance(cmd_args, Command):
-        args = cmd_args.args
-        method_name = cmd_args.method
+        # Use the new execute method
+        return cmd_args.execute(sp)
     else:
-        args = cmd_args
-
-    if method_name is None:
-        method(*args)
-    else:
-        method(method_name, *args)
+        # Legacy support for raw args
+        method = getattr(sp, block)
+        if method_name is None:
+            method(*cmd_args)
+        else:
+            method(method_name, *cmd_args)
 
 
 def handle_teams(sp, cmd_args):
@@ -612,11 +739,20 @@ def handle_teams(sp, cmd_args):
     # Extract command and member commands from tuple
     if isinstance(cmd_args, tuple):
         main_cmd, members_cmd_args = cmd_args
-        sp.teams("add", *main_cmd.args)
+        # Execute main team command
+        if isinstance(main_cmd, Command):
+            main_cmd.execute(sp)
+        else:
+            sp.teams("add", *main_cmd)
+
+        # Execute member commands
         for member_cmd in members_cmd_args:
-            sp.teams("members", *member_cmd.args)
+            if isinstance(member_cmd, Command):
+                member_cmd.execute(sp)
+            else:
+                sp.teams("members", *member_cmd)
     elif isinstance(cmd_args, Command):
-        sp.teams(cmd_args.method, *cmd_args.args)
+        cmd_args.execute(sp)
     else:
         # Legacy format
         cmd_args_list, members_cmd_args = cmd_args
@@ -628,7 +764,7 @@ def handle_teams(sp, cmd_args):
 def handle_members(sp, cmd_args):
     """Handler for organization members"""
     if isinstance(cmd_args, Command):
-        sp.members(cmd_args.method, *cmd_args.args)
+        cmd_args.execute(sp)
     else:
         sp.members("add", *cmd_args)
 
@@ -655,21 +791,18 @@ def handle_participants(sp, cmd_args):
 def handle_compute_envs(sp, cmd_args):
     """Handler for compute environments (import vs add)"""
     if isinstance(cmd_args, Command):
-        args = cmd_args.args
-        method_name = cmd_args.method
+        cmd_args.execute(sp)
     else:
         args = cmd_args
         json_file = any(".json" in arg for arg in args)
         method_name = "import" if json_file else "add"
-
-    sp.compute_envs(method_name, *args)
+        sp.compute_envs(method_name, *args)
 
 
 def handle_pipelines(sp, cmd_args):
     """Handler for pipelines (import vs add)"""
     if isinstance(cmd_args, Command):
-        args = cmd_args.args
-        method_name = cmd_args.method
+        cmd_args.execute(sp)
     else:
         args = cmd_args
         # Determine method based on args
@@ -678,5 +811,4 @@ def handle_pipelines(sp, cmd_args):
             if ".json" in arg:
                 method_name = "import"
                 break
-
-    sp.pipelines(method_name, *args)
+        sp.pipelines(method_name, *args)

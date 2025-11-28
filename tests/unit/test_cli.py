@@ -374,3 +374,37 @@ def test_error_handling(runner, mock_seqera_platform, error_class, error_msg):
         result = runner.invoke(app, ["test.yaml"])
 
         assert result.exit_code == 1
+
+
+def test_traceback_flag_hides_traceback(runner, mock_seqera_platform, caplog):
+    """Test that errors without --traceback flag exit cleanly."""
+    with (
+        patch("seqerakit.cli.find_yaml_files") as mock_find,
+        patch("seqerakit.cli.helper.parse_all_yaml") as mock_parse,
+    ):
+        mock_find.return_value = ["test.yaml"]
+        mock_parse.side_effect = ValueError("Test error message")
+
+        # Without --traceback, should exit with error code
+        result = runner.invoke(app, ["test.yaml"])
+
+        assert result.exit_code == 1
+        # Error should be logged
+        assert any("Test error message" in record.message for record in caplog.records)
+
+
+def test_traceback_flag_shows_traceback(runner, mock_seqera_platform):
+    """Test that --traceback flag causes exception to be raised."""
+    with (
+        patch("seqerakit.cli.find_yaml_files") as mock_find,
+        patch("seqerakit.cli.helper.parse_all_yaml") as mock_parse,
+    ):
+        mock_find.return_value = ["test.yaml"]
+        mock_parse.side_effect = ValueError("Test error message")
+
+        # With --traceback, exception should propagate
+        result = runner.invoke(app, ["test.yaml", "--traceback"])
+
+        assert result.exit_code == 1
+        # Exception should be raised (check for ValueError in exception)
+        assert result.exception is not None

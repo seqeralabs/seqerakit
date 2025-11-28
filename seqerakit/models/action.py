@@ -1,5 +1,5 @@
 from pydantic import Field
-from typing import Optional
+from typing import Optional, List
 from .base import SeqeraResource
 
 class Action(SeqeraResource):
@@ -22,6 +22,33 @@ class Action(SeqeraResource):
     event: Optional[str] = None
     launch: Optional[bool] = None
     params: Optional[dict] = None
+
+    def to_cli_args(self) -> List[str]:
+        """
+        Override to handle type as positional argument.
+        Format: tw actions add <type> --name <name> ...
+        """
+        args = []
+        data = self.input_dict().copy()
+
+        # Type is the first positional argument
+        if "type" in data:
+            args.append(data.pop("type"))
+
+        # Note: params will be handled by the builder (temp file creation)
+        # So we exclude it from the standard args here
+        if "params" in data:
+            data.pop("params")
+
+        # Rest as standard options
+        for key, value in data.items():
+            if isinstance(value, bool):
+                if value:
+                    args.append(f"--{key}")
+            elif value is not None:
+                args.extend([f"--{key}", str(value)])
+
+        return args
 
     @classmethod
     def from_api_response(cls, data: dict) -> "Action":
