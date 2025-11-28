@@ -19,15 +19,15 @@ the required options for each resource based on the Seqera Platform CLI.
 """
 
 import logging
-import sys
 import os
+import sys
 from enum import Enum
 from pathlib import Path
 
 import typer
-import yaml
+import yaml  # noqa: F401
 
-from seqerakit import seqeraplatform, helper, overwrite
+from seqerakit import helper, overwrite, seqeraplatform
 from seqerakit.seqeraplatform import (
     ResourceExistsError,
     ResourceNotFoundError,
