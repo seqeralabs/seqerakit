@@ -26,6 +26,7 @@ from typing import Optional, List
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
 from seqerakit import seqeraplatform, helper, overwrite
 from seqerakit.seqeraplatform import (
@@ -287,9 +288,17 @@ def main(
         "--verbose",
         help="Enable verbose output for Seqera Platform CLI.",
     ),
+    traceback: bool = typer.Option(
+        False,
+        "--traceback",
+        help="Show full traceback on errors (useful for debugging).",
+    ),
 ):
     """Create resources on Seqera Platform using a YAML configuration file."""
     logging.basicConfig(level=getattr(logging, log_level.value.upper()))
+
+    # Configure exception handling
+    sys.tracebacklimit = None if traceback else 0
 
     # Parse CLI arguments into a list
     cli_args_list = []
@@ -366,8 +375,25 @@ def main(
         for block, args_list in cmd_args_dict.items():
             for args in args_list:
                 block_manager.handle_block(block, args, destroy=delete, dryrun=dryrun)
+    except ValidationError as e:
+        # Format Pydantic validation errors nicely
+        logging.error("Validation error in YAML configuration:")
+        for error in e.errors():
+            field = " -> ".join(str(loc) for loc in error["loc"])
+            logging.error(f"  {field}: {error['msg']}")
+        if traceback:
+            raise
+        raise typer.Exit(code=1)
     except (ResourceExistsError, ResourceNotFoundError, CommandError, ValueError) as e:
         logging.error(e)
+        if traceback:
+            raise
+        raise typer.Exit(code=1)
+    except Exception as e:
+        # Catch-all for any other exceptions
+        logging.error(f"Error: {e}")
+        if traceback:
+            raise
         raise typer.Exit(code=1)
 
 

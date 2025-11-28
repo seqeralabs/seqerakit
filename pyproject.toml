@@ -21,7 +21,7 @@ authors = [
 maintainers = [{ name = "Esha Joshi", email = "esha.joshi@seqera.io" }]
 # TODO https://pypi.org/classifiers/
 classifiers = ["License :: OSI Approved :: Apache Software License"]
-dependencies = ["pyyaml>=6.0.0", "typer[all]>=0.15.1"]
+dependencies = ["pyyaml>=6.0.0", "typer[all]>=0.15.1", "pydantic>=2.0.0"]
 [project.urls]
 Homepage = "https://seqera.io/"
 Documentation = "https://docs.seqera.io/platform/24.2/seqerakit/installation"
