@@ -2,8 +2,8 @@
 Unit tests for the Command.execute() method.
 Tests the new architecture where Command objects can execute themselves.
 """
-import pytest
-from unittest.mock import Mock, MagicMock
+
+from unittest.mock import Mock
 from seqerakit.helper import Command
 from seqerakit.seqeraplatform import SeqeraPlatform
 
@@ -21,7 +21,7 @@ class TestCommandExecute:
         cmd = Command(
             subcommand="pipelines",
             method="add",
-            args=["https://github.com/nextflow-io/hello", "--name", "test-pipeline"]
+            args=["https://github.com/nextflow-io/hello", "--name", "test-pipeline"],
         )
 
         # Execute the command
@@ -29,10 +29,7 @@ class TestCommandExecute:
 
         # Verify the correct method was called with correct args
         sp.pipelines.assert_called_once_with(
-            "add",
-            "https://github.com/nextflow-io/hello",
-            "--name",
-            "test-pipeline"
+            "add", "https://github.com/nextflow-io/hello", "--name", "test-pipeline"
         )
         assert result == "success"
 
@@ -45,17 +42,13 @@ class TestCommandExecute:
         cmd = Command(
             subcommand="launch",
             method=None,
-            args=["my-pipeline", "--workspace", "org/ws"]
+            args=["my-pipeline", "--workspace", "org/ws"],
         )
 
         result = cmd.execute(sp)
 
         # Should call without the method parameter
-        sp.launch.assert_called_once_with(
-            "my-pipeline",
-            "--workspace",
-            "org/ws"
-        )
+        sp.launch.assert_called_once_with("my-pipeline", "--workspace", "org/ws")
         assert result == "launched"
 
     def test_execute_with_hyphenated_subcommand(self):
@@ -66,18 +59,14 @@ class TestCommandExecute:
         cmd = Command(
             subcommand="compute-envs",
             method="add",
-            args=["aws-batch", "forge", "--name", "my-ce"]
+            args=["aws-batch", "forge", "--name", "my-ce"],
         )
 
         result = cmd.execute(sp)
 
         # Hyphen should be converted to underscore for Python method name
         sp.compute_envs.assert_called_once_with(
-            "add",
-            "aws-batch",
-            "forge",
-            "--name",
-            "my-ce"
+            "add", "aws-batch", "forge", "--name", "my-ce"
         )
         assert result == "created"
 
@@ -86,11 +75,7 @@ class TestCommandExecute:
         sp = Mock(spec=SeqeraPlatform)
         sp.pipelines = Mock(return_value="imported")
 
-        cmd = Command(
-            subcommand="pipelines",
-            method="import",
-            args=["pipeline.json"]
-        )
+        cmd = Command(subcommand="pipelines", method="import", args=["pipeline.json"])
 
         result = cmd.execute(sp)
 
@@ -105,18 +90,13 @@ class TestCommandExecute:
         cmd = Command(
             subcommand="credentials",
             method="add",
-            args=["aws", "--name", "my-aws-cred", "--access-key", "AKIATEST"]
+            args=["aws", "--name", "my-aws-cred", "--access-key", "AKIATEST"],
         )
 
         result = cmd.execute(sp)
 
         sp.credentials.assert_called_once_with(
-            "add",
-            "aws",
-            "--name",
-            "my-aws-cred",
-            "--access-key",
-            "AKIATEST"
+            "add", "aws", "--name", "my-aws-cred", "--access-key", "AKIATEST"
         )
         assert result == "added"
 
@@ -128,7 +108,15 @@ class TestCommandExecute:
         cmd = Command(
             subcommand="teams",
             method="members",
-            args=["--team", "my-team", "--organization", "my-org", "add", "--member", "user@example.com"]
+            args=[
+                "--team",
+                "my-team",
+                "--organization",
+                "my-org",
+                "add",
+                "--member",
+                "user@example.com",
+            ],
         )
 
         result = cmd.execute(sp)
@@ -141,7 +129,7 @@ class TestCommandExecute:
             "my-org",
             "add",
             "--member",
-            "user@example.com"
+            "user@example.com",
         )
         assert result == "member added"
 
@@ -150,11 +138,7 @@ class TestCommandExecute:
         sp = Mock(spec=SeqeraPlatform)
         sp.organizations = Mock(return_value="listed")
 
-        cmd = Command(
-            subcommand="organizations",
-            method="list",
-            args=[]
-        )
+        cmd = Command(subcommand="organizations", method="list", args=[])
 
         result = cmd.execute(sp)
 
@@ -169,17 +153,13 @@ class TestCommandExecute:
         cmd = Command(
             subcommand="data-links",
             method="add",
-            args=["--name", "my-link", "--workspace", "org/ws"]
+            args=["--name", "my-link", "--workspace", "org/ws"],
         )
 
         result = cmd.execute(sp)
 
         sp.data_links.assert_called_once_with(
-            "add",
-            "--name",
-            "my-link",
-            "--workspace",
-            "org/ws"
+            "add", "--name", "my-link", "--workspace", "org/ws"
         )
         assert result == "created"
 
@@ -192,7 +172,7 @@ class TestCommandToArgsList:
         cmd = Command(
             subcommand="pipelines",
             method="add",
-            args=["https://github.com/test/repo", "--name", "test"]
+            args=["https://github.com/test/repo", "--name", "test"],
         )
 
         args_list = cmd.to_args_list()
@@ -202,7 +182,7 @@ class TestCommandToArgsList:
             "add",
             "https://github.com/test/repo",
             "--name",
-            "test"
+            "test",
         ]
 
     def test_to_args_list_without_method(self):
@@ -210,25 +190,16 @@ class TestCommandToArgsList:
         cmd = Command(
             subcommand="launch",
             method=None,
-            args=["my-pipeline", "--workspace", "org/ws"]
+            args=["my-pipeline", "--workspace", "org/ws"],
         )
 
         args_list = cmd.to_args_list()
 
-        assert args_list == [
-            "launch",
-            "my-pipeline",
-            "--workspace",
-            "org/ws"
-        ]
+        assert args_list == ["launch", "my-pipeline", "--workspace", "org/ws"]
 
     def test_to_args_list_empty_args(self):
         """Test converting command with no args"""
-        cmd = Command(
-            subcommand="organizations",
-            method="list",
-            args=[]
-        )
+        cmd = Command(subcommand="organizations", method="list", args=[])
 
         args_list = cmd.to_args_list()
 
@@ -249,11 +220,15 @@ class TestCommandIntegration:
             method="add",
             args=[
                 "https://github.com/nextflow-io/hello",
-                "--name", "hello",
-                "--workspace", "demo/test",
-                "--compute-env", "my-compute-env",
-                "--params-file", "/tmp/params.yaml"
-            ]
+                "--name",
+                "hello",
+                "--workspace",
+                "demo/test",
+                "--compute-env",
+                "my-compute-env",
+                "--params-file",
+                "/tmp/params.yaml",
+            ],
         )
 
         result = cmd.execute(sp)
@@ -273,12 +248,17 @@ class TestCommandIntegration:
             args=[
                 "aws-batch",
                 "forge",
-                "--name", "my-ce",
-                "--workspace", "demo/test",
-                "--work-dir", "s3://bucket/work",
-                "--region", "us-east-1",
-                "--max-cpus", "256"
-            ]
+                "--name",
+                "my-ce",
+                "--workspace",
+                "demo/test",
+                "--work-dir",
+                "s3://bucket/work",
+                "--region",
+                "us-east-1",
+                "--max-cpus",
+                "256",
+            ],
         )
 
         result = cmd.execute(sp)
@@ -295,20 +275,36 @@ class TestCommandIntegration:
         team_cmd = Command(
             subcommand="teams",
             method="add",
-            args=["--name", "dev-team", "--organization", "acme-corp"]
+            args=["--name", "dev-team", "--organization", "acme-corp"],
         )
 
         # Member commands
         member1_cmd = Command(
             subcommand="teams",
             method="members",
-            args=["--team", "dev-team", "--organization", "acme-corp", "add", "--member", "user1@example.com"]
+            args=[
+                "--team",
+                "dev-team",
+                "--organization",
+                "acme-corp",
+                "add",
+                "--member",
+                "user1@example.com",
+            ],
         )
 
         member2_cmd = Command(
             subcommand="teams",
             method="members",
-            args=["--team", "dev-team", "--organization", "acme-corp", "add", "--member", "user2@example.com"]
+            args=[
+                "--team",
+                "dev-team",
+                "--organization",
+                "acme-corp",
+                "add",
+                "--member",
+                "user2@example.com",
+            ],
         )
 
         # Execute all commands
@@ -330,11 +326,15 @@ class TestCommandIntegration:
             method="add",
             args=[
                 "aws",  # Type as positional
-                "--name", "my-aws-cred",
-                "--workspace", "demo/test",
-                "--access-key", "AKIAIOSFODNN7EXAMPLE",
-                "--secret-key", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            ]
+                "--name",
+                "my-aws-cred",
+                "--workspace",
+                "demo/test",
+                "--access-key",
+                "AKIAIOSFODNN7EXAMPLE",
+                "--secret-key",
+                "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            ],
         )
 
         result = cmd.execute(sp)

@@ -1,6 +1,6 @@
-from pydantic import Field
 from typing import Optional
 from .base import SeqeraResource
+
 
 class DataLink(SeqeraResource):
     name: str
@@ -20,5 +20,5 @@ class DataLink(SeqeraResource):
             provider=data.get("provider"),
             workspace=f"{data.get('orgName')}/{data.get('workspaceName')}",
             description=data.get("description"),
-            credentials=data.get("credentials", {}).get("name")
+            credentials=data.get("credentials", {}).get("name"),
         )

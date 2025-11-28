@@ -2,6 +2,7 @@ from pydantic import Field
 from typing import Optional
 from .base import SeqeraResource
 
+
 class Dataset(SeqeraResource):
     name: str
     workspace: str
@@ -18,5 +19,5 @@ class Dataset(SeqeraResource):
             workspace=f"{data.get('orgName')}/{data.get('workspaceName')}",
             file_path="",  # Not available in API response
             description=data.get("description"),
-            header=data.get("header")
+            header=data.get("header"),
         )

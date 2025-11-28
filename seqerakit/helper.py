@@ -17,6 +17,7 @@ This file contains helper functions for the library.
 Including handling methods for each block in the YAML file, and parsing
 methods for each block in the YAML file.
 """
+
 import yaml  # type: ignore
 from seqerakit import utils
 import sys
@@ -42,13 +43,14 @@ from seqerakit.models import (
 from seqerakit.models.base import SeqeraResource
 from pydantic import ValidationError
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Union, List, Tuple, Optional, Type
+from typing import Dict, Any, Union, List, Tuple, Type
 from dataclasses import dataclass
 
 
 @dataclass
 class Command:
     """Represents a TW command to be executed"""
+
     subcommand: str
     args: List[str]
     method: str = "add"  # Default method
@@ -81,27 +83,27 @@ class Command:
 
 class ArgumentBuilder:
     """Helper class to build command arguments in a structured way"""
-    
+
     def __init__(self):
         self.args: List[str] = []
-    
-    def add_flag(self, flag: str, condition: bool = True) -> 'ArgumentBuilder':
+
+    def add_flag(self, flag: str, condition: bool = True) -> "ArgumentBuilder":
         """Add a boolean flag if condition is true"""
         if condition:
             self.args.append(f"--{flag}")
         return self
-    
-    def add_option(self, key: str, value: Any) -> 'ArgumentBuilder':
+
+    def add_option(self, key: str, value: Any) -> "ArgumentBuilder":
         """Add a key-value option"""
         if value is not None:
             self.args.extend([f"--{key}", str(value)])
         return self
-    
-    def add_positional(self, value: str) -> 'ArgumentBuilder':
+
+    def add_positional(self, value: str) -> "ArgumentBuilder":
         """Add a positional argument"""
         self.args.append(str(value))
         return self
-    
+
     def build(self) -> List[str]:
         """Return the built argument list"""
         return self.args.copy()
@@ -110,7 +112,9 @@ class ArgumentBuilder:
 class CommandBuilder(ABC):
     """Base class for building commands from Pydantic models"""
 
-    def __init__(self, subcommand: str, model_class: Type[SeqeraResource], method: str = "add"):
+    def __init__(
+        self, subcommand: str, model_class: Type[SeqeraResource], method: str = "add"
+    ):
         self.subcommand = subcommand
         self.model_class = model_class
         self.method = method
@@ -149,11 +153,7 @@ class GenericCommandBuilder(CommandBuilder):
         # Simply delegate to the model's to_cli_args() method
         args = model_instance.to_cli_args()
 
-        return Command(
-            subcommand=self.subcommand,
-            method=self.method,
-            args=args
-        )
+        return Command(subcommand=self.subcommand, method=self.method, args=args)
 
 
 class TypeBasedCommandBuilder(CommandBuilder):
@@ -173,11 +173,7 @@ class TypeBasedCommandBuilder(CommandBuilder):
         # Determine method based on whether file-path contains .json
         method = "import" if any(".json" in str(v) for v in data.values()) else "add"
 
-        return Command(
-            subcommand=self.subcommand,
-            method=method,
-            args=args
-        )
+        return Command(subcommand=self.subcommand, method=method, args=args)
 
     def build_command_from_dict(self, item: Dict[str, Any], sp=None) -> Command:
         """Override for file-path imports"""
@@ -205,7 +201,9 @@ class TypeBasedCommandBuilder(CommandBuilder):
 class TeamsCommandBuilder(CommandBuilder):
     """Special handling for teams with members"""
 
-    def build_command(self, model_instance: SeqeraResource, sp=None) -> Union[Command, Tuple[Command, List[Command]]]:
+    def build_command(
+        self, model_instance: SeqeraResource, sp=None
+    ) -> Union[Command, Tuple[Command, List[Command]]]:
         data = model_instance.input_dict()
 
         # Extract members for separate handling
@@ -224,11 +222,7 @@ class TeamsCommandBuilder(CommandBuilder):
             elif value is not None:
                 args.extend([f"--{key}", str(value)])
 
-        main_command = Command(
-            subcommand="teams",
-            method="add",
-            args=args
-        )
+        main_command = Command(subcommand="teams", method="add", args=args)
 
         # Build member commands if members exist
         if members:
@@ -238,17 +232,18 @@ class TeamsCommandBuilder(CommandBuilder):
 
             for member in members:
                 member_args = [
-                    "--team", team_name,
-                    "--organization", org_name,
+                    "--team",
+                    team_name,
+                    "--organization",
+                    org_name,
                     "add",
-                    "--member", member
+                    "--member",
+                    member,
                 ]
 
-                members_commands.append(Command(
-                    subcommand="teams",
-                    method="members",
-                    args=member_args
-                ))
+                members_commands.append(
+                    Command(subcommand="teams", method="members", args=member_args)
+                )
 
             return (main_command, members_commands)
 
@@ -284,11 +279,7 @@ class PipelineCommandBuilder(CommandBuilder):
         # Determine method (import for JSON files, add otherwise)
         method = "import" if any(".json" in str(v) for v in data.values()) else "add"
 
-        return Command(
-            subcommand=self.subcommand,
-            method=method,
-            args=args
-        )
+        return Command(subcommand=self.subcommand, method=method, args=args)
 
     def build_command_from_dict(self, item: Dict[str, Any], sp=None) -> Command:
         """Override for file-path imports"""
@@ -366,7 +357,9 @@ COMMAND_BUILDERS: Dict[str, CommandBuilder] = {
 }
 
 
-def validate_and_build_model(block_name: str, item: Dict[str, Any]) -> Tuple[SeqeraResource, Dict[str, Any]]:
+def validate_and_build_model(
+    block_name: str, item: Dict[str, Any]
+) -> Tuple[SeqeraResource, Dict[str, Any]]:
     """
     Validate a single YAML item using its Pydantic model and return the model instance.
 
@@ -451,10 +444,7 @@ def parse_block(block_name: str, item: Dict[str, Any], sp=None) -> Dict[str, Any
         # Use validated Pydantic model
         command_result = builder.build_command(model_instance, sp)
 
-    return {
-        "cmd_args": command_result,
-        "on_exists": on_exists
-    }
+    return {"cmd_args": command_result, "on_exists": on_exists}
 
 
 def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
@@ -676,8 +666,6 @@ def process_params_dict(params_dict, workspace=None, sp=None, params_file_path=N
     return params_args
 
 
-
-
 def find_name(cmd_args):
     """
     Find and return the value associated with --name in cmd_args, where cmd_args
@@ -711,9 +699,11 @@ def find_name(cmd_args):
         # Handle tuple of command and member commands (for teams)
         if isinstance(command, tuple):
             main_command, _ = command
-            return search(main_command.args if hasattr(main_command, 'args') else main_command)
+            return search(
+                main_command.args if hasattr(main_command, "args") else main_command
+            )
         # Handle regular Command object
-        elif hasattr(command, 'args'):
+        elif hasattr(command, "args"):
             return search(command.args)
 
     # Legacy format

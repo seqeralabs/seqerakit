@@ -1,4 +1,5 @@
 """Simplified unit tests for helper functions with Pydantic models"""
+
 from unittest.mock import patch, mock_open
 from seqerakit import helper
 from seqerakit.on_exists import OnExists
@@ -307,7 +308,9 @@ class TestProcessParamsDict:
         assert result[1].endswith(".yaml")
 
     def test_params_with_file_path(self):
-        result = helper.process_params_dict(None, params_file_path="path/to/params.yaml")
+        result = helper.process_params_dict(
+            None, params_file_path="path/to/params.yaml"
+        )
         assert result == ["--params-file", "path/to/params.yaml"]
 
     def test_empty_params(self):

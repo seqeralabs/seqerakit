@@ -4,10 +4,9 @@ from typing import List
 
 class SeqeraResource(BaseModel):
     """Base class for all Seqera Platform resources"""
+
     model_config = ConfigDict(
-        extra="ignore",
-        populate_by_name=True,
-        use_enum_values=True
+        extra="ignore", populate_by_name=True, use_enum_values=True
     )
 
     def dump_dict(self) -> dict:

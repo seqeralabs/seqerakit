@@ -2,6 +2,7 @@ from pydantic import Field
 from typing import Optional, List
 from .base import SeqeraResource
 
+
 class Pipeline(SeqeraResource):
     name: str
     url: str
@@ -54,17 +55,17 @@ class Pipeline(SeqeraResource):
         return args
 
     @classmethod
-    def from_api_response(cls, data: dict) -> "Pipelines":
+    def from_api_response(cls, data: dict) -> "Pipeline":
         """
         Create a Pipeline instance from API response data by mapping fields
         """
         info = data.get("info", {})
         launch = data.get("launch", {})
-        
+
         # Get values first
         work_dir = launch.get("workDir", "")
         compute_env_name = launch.get("computeEnv", {}).get("name", "")
-        
+
         # Extract labels
         labels = [
             f"{label['name']}={label['value']}"
@@ -72,18 +73,20 @@ class Pipeline(SeqeraResource):
             if not label.get("resource", True)
         ]
         labels_str = ",".join(sorted(labels)) if labels else None
-        
+
         mapped_data = {
             "name": info.get("name", ""),
             "workspace": f"{info.get('orgName', '')}/{info.get('workspaceName', '')}",
             "work_dir": work_dir,
             "revision": launch.get("revision", ""),
-            "profile": launch.get("configProfiles", ["standard"])[0] if launch.get("configProfiles") else "standard",
+            "profile": launch.get("configProfiles", ["standard"])[0]
+            if launch.get("configProfiles")
+            else "standard",
             "compute_env": compute_env_name,
             "url": launch.get("pipeline", ""),
             "labels": labels_str,
             "config_text": launch.get("configText"),
             "params_text": launch.get("paramsText"),
-            "pull_latest": launch.get("pullLatest", False)
+            "pull_latest": launch.get("pullLatest", False),
         }
         return cls(**mapped_data)

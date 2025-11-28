@@ -2,6 +2,7 @@ from pydantic import Field
 from typing import Optional
 from .base import SeqeraResource
 
+
 class Studio(SeqeraResource):
     name: str
     compute_env: str = Field(alias="compute-env")
@@ -21,7 +22,9 @@ class Studio(SeqeraResource):
     mount_data_uris: Optional[str] = Field(default=None, alias="mount-data-uris")
     mount_data: Optional[str] = Field(default=None, alias="mount-data")
     mount_data_ids: Optional[str] = Field(default=None, alias="mount-data-ids")
-    mount_data_resource_refs: Optional[str] = Field(default=None, alias="mount-data-resource-refs")
+    mount_data_resource_refs: Optional[str] = Field(
+        default=None, alias="mount-data-resource-refs"
+    )
     overwrite: Optional[bool] = None
 
     @classmethod
@@ -35,5 +38,5 @@ class Studio(SeqeraResource):
             template=data.get("containerImage"),
             cpu=data.get("cpu"),
             memory=data.get("memory"),
-            gpu=data.get("gpu")
+            gpu=data.get("gpu"),
         )

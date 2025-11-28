@@ -2,7 +2,7 @@
 Unit tests for the to_cli_args() method on Pydantic models.
 Tests the new architecture where models convert themselves to CLI arguments.
 """
-import pytest
+
 from seqerakit.models import (
     Organization,
     Workspace,
@@ -30,7 +30,7 @@ class TestBasicModelsToCliArgs:
         org = Organization(
             name="test-org",
             full_name="Test Organization",
-            description="A test organization"
+            description="A test organization",
         )
         args = org.to_cli_args()
 
@@ -44,9 +44,7 @@ class TestBasicModelsToCliArgs:
     def test_workspace_to_cli_args(self):
         """Test Workspace.to_cli_args()"""
         ws = Workspace(
-            name="test-ws",
-            full_name="Test Workspace",
-            organization="my-org"
+            name="test-ws", full_name="Test Workspace", organization="my-org"
         )
         args = ws.to_cli_args()
 
@@ -59,11 +57,7 @@ class TestBasicModelsToCliArgs:
 
     def test_label_to_cli_args(self):
         """Test Label.to_cli_args()"""
-        label = Label(
-            name="env",
-            value="production",
-            workspace="org/workspace"
-        )
+        label = Label(name="env", value="production", workspace="org/workspace")
         args = label.to_cli_args()
 
         assert "--name" in args
@@ -76,10 +70,7 @@ class TestBasicModelsToCliArgs:
     def test_boolean_flags(self):
         """Test that boolean True values become flags"""
         ws = Workspace(
-            name="test",
-            full_name="Test",
-            organization="org",
-            visibility="PRIVATE"
+            name="test", full_name="Test", organization="org", visibility="PRIVATE"
         )
         args = ws.to_cli_args()
 
@@ -92,7 +83,7 @@ class TestBasicModelsToCliArgs:
         """Test that None values are excluded from CLI args"""
         org = Organization(
             name="test-org",
-            full_name="Test Org"
+            full_name="Test Org",
             # description is None
         )
         args = org.to_cli_args()
@@ -112,7 +103,7 @@ class TestCredentialToCliArgs:
             name="my-aws-cred",
             workspace="org/workspace",
             access_key="AKIAIOSFODNN7EXAMPLE",
-            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         )
         args = cred.to_cli_args()
 
@@ -133,7 +124,7 @@ class TestCredentialToCliArgs:
             type="google",
             name="my-gcp-cred",
             workspace="org/workspace",
-            key="/path/to/key.json"
+            key="/path/to/key.json",
         )
         args = cred.to_cli_args()
 
@@ -154,7 +145,7 @@ class TestComputeEnvToCliArgs:
             workspace="org/workspace",
             work_dir="s3://bucket/work",
             region="us-east-1",
-            max_cpus=256
+            max_cpus=256,
         )
         args = ce.to_cli_args()
 
@@ -183,7 +174,7 @@ class TestComputeEnvToCliArgs:
             region="us-east-1",
             max_cpus=256,
             instance_types=["t3.large", "t3.xlarge"],
-            subnets=["subnet-123", "subnet-456"]
+            subnets=["subnet-123", "subnet-456"],
         )
         args = ce.to_cli_args()
 
@@ -207,7 +198,7 @@ class TestActionToCliArgs:
             name="my-action",
             workspace="org/workspace",
             pipeline="my-pipeline",
-            url="https://github.com/user/repo"
+            url="https://github.com/user/repo",
         )
         args = action.to_cli_args()
 
@@ -226,7 +217,7 @@ class TestActionToCliArgs:
             type="github",
             name="my-action",
             workspace="org/workspace",
-            params={"key": "value"}
+            params={"key": "value"},
         )
         args = action.to_cli_args()
 
@@ -245,7 +236,7 @@ class TestPipelineToCliArgs:
             url="https://github.com/nextflow-io/hello",
             workspace="org/workspace",
             compute_env="my-compute-env",
-            work_dir="s3://bucket/work"
+            work_dir="s3://bucket/work",
         )
         args = pipeline.to_cli_args()
 
@@ -266,7 +257,7 @@ class TestPipelineToCliArgs:
             name="my-pipeline",
             url="https://github.com/nextflow-io/hello",
             workspace="org/workspace",
-            params_file="/path/to/params.yaml"
+            params_file="/path/to/params.yaml",
         )
         args = pipeline.to_cli_args()
 
@@ -281,7 +272,7 @@ class TestPipelineToCliArgs:
             url="https://github.com/nextflow-io/hello",
             workspace="org/workspace",
             pull_latest=True,
-            stub_run=True
+            stub_run=True,
         )
         args = pipeline.to_cli_args()
 
@@ -299,7 +290,7 @@ class TestLaunchToCliArgs:
             pipeline="my-pipeline",
             workspace="org/workspace",
             compute_env="my-compute-env",
-            work_dir="s3://bucket/work"
+            work_dir="s3://bucket/work",
         )
         args = launch.to_cli_args()
 
@@ -317,7 +308,7 @@ class TestLaunchToCliArgs:
         launch = Launch(
             pipeline="my-pipeline",
             workspace="org/workspace",
-            params={"input": "s3://bucket/data"}
+            params={"input": "s3://bucket/data"},
         )
         args = launch.to_cli_args()
 
@@ -331,11 +322,7 @@ class TestTeamToCliArgs:
 
     def test_team_without_members(self):
         """Test team without members"""
-        team = Team(
-            name="my-team",
-            organization="my-org",
-            description="Test team"
-        )
+        team = Team(name="my-team", organization="my-org", description="Test team")
         args = team.to_cli_args()
 
         assert "--name" in args
@@ -349,7 +336,7 @@ class TestTeamToCliArgs:
         team = Team(
             name="my-team",
             organization="my-org",
-            members=["user1@example.com", "user2@example.com"]
+            members=["user1@example.com", "user2@example.com"],
         )
         args = team.to_cli_args()
 
@@ -365,10 +352,7 @@ class TestOtherModels:
 
     def test_member_to_cli_args(self):
         """Test Member model"""
-        member = Member(
-            user="user@example.com",
-            organization="my-org"
-        )
+        member = Member(user="user@example.com", organization="my-org")
         args = member.to_cli_args()
 
         assert "--user" in args
@@ -378,9 +362,7 @@ class TestOtherModels:
     def test_participant_to_cli_args(self):
         """Test Participant model"""
         participant = Participant(
-            name="user@example.com",
-            type="member",
-            workspace="org/workspace"
+            name="user@example.com", type="member", workspace="org/workspace"
         )
         args = participant.to_cli_args()
 
@@ -396,7 +378,7 @@ class TestOtherModels:
         dataset = Dataset(
             name="my-dataset",
             workspace="org/workspace",
-            file_path="/path/to/dataset.csv"
+            file_path="/path/to/dataset.csv",
         )
         args = dataset.to_cli_args()
 
@@ -410,9 +392,7 @@ class TestOtherModels:
     def test_secret_to_cli_args(self):
         """Test Secret model"""
         secret = Secret(
-            name="my-secret",
-            workspace="org/workspace",
-            value="secret-value"
+            name="my-secret", workspace="org/workspace", value="secret-value"
         )
         args = secret.to_cli_args()
 
@@ -422,11 +402,7 @@ class TestOtherModels:
 
     def test_datalink_to_cli_args(self):
         """Test DataLink model"""
-        datalink = DataLink(
-            name="my-datalink",
-            uri="s3://bucket/data",
-            provider="aws"
-        )
+        datalink = DataLink(name="my-datalink", uri="s3://bucket/data", provider="aws")
         args = datalink.to_cli_args()
 
         assert "--name" in args
@@ -438,10 +414,7 @@ class TestOtherModels:
 
     def test_studio_to_cli_args(self):
         """Test Studio model"""
-        studio = Studio(
-            name="my-studio",
-            compute_env="my-compute-env"
-        )
+        studio = Studio(name="my-studio", compute_env="my-compute-env")
         args = studio.to_cli_args()
 
         assert "--name" in args
@@ -458,7 +431,7 @@ class TestEdgeCases:
         org = Organization(
             name="test",
             full_name="Test",
-            description=""  # Empty string
+            description="",  # Empty string
         )
         args = org.to_cli_args()
 
@@ -477,7 +450,7 @@ class TestEdgeCases:
             work_dir="s3://bucket",
             region="us-east-1",
             max_cpus=256,
-            min_cpus=0  # Zero should be included
+            min_cpus=0,  # Zero should be included
         )
         args = ce.to_cli_args()
 
@@ -491,7 +464,7 @@ class TestEdgeCases:
             name="test",
             url="https://github.com/test/repo",
             workspace="org/ws",
-            pull_latest=False
+            pull_latest=False,
         )
         args = pipeline.to_cli_args()
 
@@ -505,7 +478,7 @@ class TestEdgeCases:
             url="https://github.com/test/repo",
             workspace="org/ws",
             compute_env="my-ce",  # Uses alias "compute-env"
-            work_dir="s3://bucket"  # Uses alias "work-dir"
+            work_dir="s3://bucket",  # Uses alias "work-dir"
         )
         args = pipeline.to_cli_args()
 

@@ -1,4 +1,5 @@
 """Unit tests for Pydantic models"""
+
 import pytest
 from pydantic import ValidationError
 from seqerakit.models import (
@@ -24,7 +25,10 @@ class TestOrganization:
     def test_valid_organization(self):
         org = Organization(name="test-org", full_name="Test Organization")
         assert org.name == "test-org"
-        assert org.input_dict() == {"name": "test-org", "full-name": "Test Organization"}
+        assert org.input_dict() == {
+            "name": "test-org",
+            "full-name": "Test Organization",
+        }
 
     def test_organization_with_all_fields(self):
         org = Organization(
@@ -46,7 +50,9 @@ class TestOrganization:
 
 class TestWorkspace:
     def test_valid_workspace(self):
-        ws = Workspace(name="test-ws", organization="test-org", full_name="Test Workspace")
+        ws = Workspace(
+            name="test-ws", organization="test-org", full_name="Test Workspace"
+        )
         assert ws.name == "test-ws"
         assert ws.input_dict()["organization"] == "test-org"
 
@@ -94,7 +100,9 @@ class TestMember:
 
 class TestParticipant:
     def test_valid_participant(self):
-        participant = Participant(name="user@example.com", type="MEMBER", workspace="org/ws")
+        participant = Participant(
+            name="user@example.com", type="MEMBER", workspace="org/ws"
+        )
         assert participant.type == "MEMBER"
 
 

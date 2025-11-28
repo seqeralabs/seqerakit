@@ -2,8 +2,10 @@ from pydantic import Field
 from typing import Optional, List
 from .base import SeqeraResource
 
+
 class Action(SeqeraResource):
     """Pipeline action model - supports both GitHub and Tower actions"""
+
     type: str
     name: Optional[str] = None
     workspace: Optional[str] = None
@@ -61,5 +63,5 @@ class Action(SeqeraResource):
             pipeline=data.get("pipeline"),
             event=data.get("event"),
             endpoint=source.get("endpoint"),
-            url=source.get("url")
+            url=source.get("url"),
         )

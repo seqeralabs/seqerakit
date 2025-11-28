@@ -2,8 +2,10 @@ from pydantic import Field
 from typing import Optional, List
 from .base import SeqeraResource
 
+
 class Credential(SeqeraResource):
     """Base credential model with type-specific fields"""
+
     type: str
     name: str
     workspace: Optional[str] = None
@@ -72,7 +74,7 @@ class Credential(SeqeraResource):
         mapped_data = {
             "type": provider,
             "name": data.get("name"),
-            "workspace": f"{data.get('orgName')}/{data.get('workspaceName')}"
+            "workspace": f"{data.get('orgName')}/{data.get('workspaceName')}",
         }
 
         keys = data.get("keys", {})

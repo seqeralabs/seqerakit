@@ -2,6 +2,7 @@ from pydantic import Field, field_validator
 from typing import Optional, List
 from seqerakit.models.base import SeqeraResource
 
+
 class ComputeEnv(SeqeraResource):
     type: str
     config_mode: str = Field(alias="config-mode")
@@ -16,7 +17,9 @@ class ComputeEnv(SeqeraResource):
     fusion_v2: Optional[bool] = Field(default=None, alias="fusion-v2")
     fusion2_enabled: Optional[bool] = Field(default=None, alias="fusion2-enabled")
     fast_storage: Optional[bool] = Field(default=None, alias="fast-storage")
-    nvnme_storage_enabled: Optional[bool] = Field(default=None, alias="nvnme-storage-enabled")
+    nvnme_storage_enabled: Optional[bool] = Field(
+        default=None, alias="nvnme-storage-enabled"
+    )
     snapshots: Optional[bool] = None
     fargate: Optional[bool] = None
     provisioning_model: Optional[str] = Field(default=None, alias="provisioning-model")
@@ -35,12 +38,14 @@ class ComputeEnv(SeqeraResource):
     wait: Optional[str] = None
     preserve_resources: Optional[bool] = Field(default=None, alias="preserve-resources")
 
-    @field_validator('instance_types', 'subnets', 'security_groups', 'allow_buckets', mode='before')
+    @field_validator(
+        "instance_types", "subnets", "security_groups", "allow_buckets", mode="before"
+    )
     @classmethod
     def split_comma_separated(cls, v):
         """Convert comma-separated strings to lists for CLI compatibility"""
         if isinstance(v, str):
-            return [item.strip() for item in v.split(',') if item.strip()]
+            return [item.strip() for item in v.split(",") if item.strip()]
         return v
 
     def to_cli_args(self) -> List[str]:
@@ -85,7 +90,7 @@ class ComputeEnv(SeqeraResource):
             if not label.get("resource", True)
         ]
         labels_str = ",".join(sorted(labels)) if labels else None
-        
+
         mapped_data = {
             "name": data.get("name"),
             "type": data.get("discriminator"),
@@ -99,8 +104,7 @@ class ComputeEnv(SeqeraResource):
             "instance_types": forge_config.get("instanceTypes", []),
             "min_cpus": forge_config.get("minCpus"),
             "max_cpus": forge_config.get("maxCpus"),
-            #TODO: add ebs_auto_scale
-            "labels": forge_config.get("labels", []),
+            # TODO: add ebs_auto_scale
             "vpc_id": forge_config.get("vpcId"),
             "subnets": forge_config.get("subnets", []),
             "security_groups": forge_config.get("securityGroups", []),

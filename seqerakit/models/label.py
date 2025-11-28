@@ -1,6 +1,6 @@
-from pydantic import Field
 from typing import Optional
 from .base import SeqeraResource
+
 
 class Label(SeqeraResource):
     name: str
@@ -14,5 +14,5 @@ class Label(SeqeraResource):
         return cls(
             name=data.get("name"),
             value=data.get("value"),
-            workspace=f"{data.get('orgName')}/{data.get('workspaceName')}"
+            workspace=f"{data.get('orgName')}/{data.get('workspaceName')}",
         )

@@ -2,6 +2,7 @@ from pydantic import Field
 from typing import Optional
 from .base import SeqeraResource
 
+
 class Workspace(SeqeraResource):
     name: str
     organization: str
@@ -18,5 +19,5 @@ class Workspace(SeqeraResource):
             organization=data.get("orgName"),
             full_name=data.get("fullName"),
             description=data.get("description"),
-            visibility=data.get("visibility")
+            visibility=data.get("visibility"),
         )

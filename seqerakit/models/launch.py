@@ -2,8 +2,10 @@ from pydantic import Field
 from typing import Optional, List
 from .base import SeqeraResource
 
+
 class Launch(SeqeraResource):
     """Launch configuration model"""
+
     pipeline: str
     workspace: Optional[str] = None
     params_file: Optional[str] = Field(default=None, alias="params-file")
@@ -26,7 +28,9 @@ class Launch(SeqeraResource):
     schema_name: Optional[str] = Field(default=None, alias="schema-name")
     user_secrets: Optional[str] = Field(default=None, alias="user-secrets")
     workspace_secrets: Optional[str] = Field(default=None, alias="workspace-secrets")
-    disable_optimization: Optional[bool] = Field(default=None, alias="disable-optimization")
+    disable_optimization: Optional[bool] = Field(
+        default=None, alias="disable-optimization"
+    )
 
     def to_cli_args(self) -> List[str]:
         """
