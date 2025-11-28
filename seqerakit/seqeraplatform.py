@@ -44,10 +44,6 @@ class SeqeraPlatform:
 
     # Constructs a new SeqeraPlatform instance
     def __init__(self, cli_args=None, dryrun=False, print_stdout=True, json=False):
-        if cli_args and "--verbose" in cli_args:
-            raise ValueError(
-                "--verbose is not supported as a CLI argument to seqerakit."
-            )
         self.cli_args = cli_args or []
         self.dryrun = dryrun
         self.print_stdout = print_stdout
@@ -69,18 +65,39 @@ class SeqeraPlatform:
         if "params_file" in kwargs:
             command.append(f"--params-file={kwargs['params_file']}")
 
-        # Check for empty string arguments and handle them
-        self._check_empty_args(command)
+        # Filter out empty arguments
+        command = self._check_empty_args(command)
 
         return self._check_env_vars(command)
 
     def _check_empty_args(self, command):
-        for current_arg, next_arg in zip(command, command[1:]):
-            if isinstance(next_arg, str) and next_arg.strip() == "":
-                raise ValueError(
-                    f"Empty string argument found for parameter '{current_arg}'. "
-                    "Please provide a valid value or remove the argument."
-                )
+        filtered_command = []
+        i = 0
+        while i < len(command):
+            current_arg = command[i]
+
+            # Check if this is a parameter (starts with --) and has a value after it
+            if i < len(command) - 1 and current_arg.startswith("--"):
+                next_arg = command[i + 1]
+
+                # If the next argument is None or an empty string
+                # skip both the parameter and its value
+                if next_arg is None or (
+                    isinstance(next_arg, str) and next_arg.strip() == ""
+                ):
+                    i += 2  # Skip both the parameter and its empty value
+                    continue
+                else:
+                    # Keep both the parameter and its non-empty value
+                    filtered_command.append(current_arg)
+                    filtered_command.append(next_arg)
+                    i += 2
+            else:
+                # Not a parameter-value pair, just add it to the filtered command
+                filtered_command.append(current_arg)
+                i += 1
+
+        return filtered_command
 
     # Checks environment variables to see that they are set accordingly
     def _check_env_vars(self, command):
@@ -98,7 +115,7 @@ class SeqeraPlatform:
         for arg in command:
             # Handle special variables that should be escaped not interpolated to bash
             if arg in special_vars:
-                full_cmd_parts.append(f'"\\\\\${arg.lstrip("$")}"')
+                full_cmd_parts.append(f'"\\\\\\${arg.lstrip("$")}"')
                 continue
 
             # Skip interpolation for explicitly escaped vars

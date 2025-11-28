@@ -4,6 +4,4 @@ teams:
     description: 'Scientific Development team @ Seqera Labs'
     members:
       - 'esha.joshi@seqera.io'
-      - 'adam.talbot@seqera.io'
-      - 'drpatelhh@gmail.com'
     on_exists: overwrite

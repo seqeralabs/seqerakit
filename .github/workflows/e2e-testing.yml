@@ -4,7 +4,9 @@ run-name: Create all entities in Seqera Platform from end-to-end with seqerakit
 # It will automate the end-to-end creation all of the following entities in Seqera Platform.
 
 on:
-  pull_request_target:
+  push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -21,11 +23,12 @@ on:
 
 jobs:
   e2e-testing:
-    name:
-    if: github.repository == 'seqeralabs/seqera-kit'
+    name: E2E Testing
+    if: github.repository == 'seqeralabs/seqerakit'
     runs-on: ubuntu-latest
 
     env:
+      TOWER_API_ENDPOINT: ${{ vars.TOWER_API_ENDPOINT }}
       TOWER_ACCESS_TOKEN: ${{ secrets.TOWER_ACCESS_TOKEN }}
       TOWER_GITHUB_PASSWORD: ${{ secrets.TOWER_GITHUB_PASSWORD }}
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -40,21 +43,17 @@ jobs:
       AWS_WORK_DIR: ${{ secrets.AWS_WORK_DIR }}
       AWS_COMPUTE_ENV_NAME: ${{ secrets.AWS_COMPUTE_ENV_NAME }}
     steps:
-      - name: Check out source-code repository
-        uses: actions/checkout@v3
-
-      - name: Setup Python
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
         with:
-          python-version: '3.12'
+          ref: ${{ github.head_ref || github.ref }}
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'uv.lock'
 
-      - name: Install pip & seqerakit
+      - name: Install Tower CLI
         run: |
-          pip install -e .
-
-      - name: Install Tower CLI v0.9.1
-        run: |
-          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.9.1/tw-linux-x86_64 \
+          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.14.0/tw-linux-x86_64 \
           && chmod +x tw-linux-x86_64 \
           && sudo mv tw-linux-x86_64 /usr/local/bin/tw
 
@@ -66,7 +65,7 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml --delete || true
+          uv run seqerakit examples/yaml/e2e/*.yml --delete || true
 
       - name: dryrun
         run: |
@@ -74,7 +73,7 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml --dryrun
+          uv run seqerakit examples/yaml/e2e/*.yml --dryrun
 
       - name: create
         run: |
@@ -82,7 +81,7 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml
+          uv run seqerakit examples/yaml/e2e/*.yml
 
       - name: teardown
         if: ( success() || failure() ) && ( github.event_name != 'workflow_dispatch' || inputs.clearup )
@@ -91,4 +90,4 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit examples/yaml/e2e/*.yml --delete
+          uv run seqerakit examples/yaml/e2e/*.yml --delete

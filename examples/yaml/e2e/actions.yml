@@ -3,10 +3,10 @@ actions:
     name: 'nf-core-rnaseq-action'
     pipeline: 'https://github.com/nf-core/rnaseq'
     workspace: 'seqerakit-e2e/showcase'
-    compute-env: 'seqera_aws_virginia_fusionv2_nvme'
-    work-dir: 's3://scidev-testing'
-    revision: 'main'
+    compute-env: 'seqera_gcp_finland'
+    work-dir: 'gs://seqeralabs-showcase-eu-north-1'
+    revision: 'master'
     profile: 'test'
     params:
-      outdir: s3://seqeralabs-showcase/nf-core-rnaseq/action/'
+      outdir: gs://seqeralabs-showcase-eu-north-1/nf-core-rnaseq/action/'
     on_exists: overwrite

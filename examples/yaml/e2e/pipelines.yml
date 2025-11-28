@@ -3,12 +3,12 @@ pipelines:
     url: 'https://github.com/nf-core/rnaseq'
     workspace: 'seqerakit-e2e/showcase'
     description: 'RNA sequencing analysis pipeline using STAR, RSEM, HISAT2 or Salmon with gene/isoform counts and extensive quality control.'
-    compute-env: 'seqera_aws_virginia_fusionv2_nvme'
-    work-dir: 's3://seqeralabs-showcase'
+    compute-env: '$AWS_COMPUTE_ENV_NAME'
+    work-dir: '$AWS_WORK_DIR'
     profile: 'test'
     revision: '3.12.0'
     params:
-      outdir: 's3://seqeralabs-showcase/nf-core-rnaseq/results'
+      outdir: '${AWS_WORK_DIR}/nf-core-rnaseq/results'
     config: './examples/yaml/pipelines/nextflow.config'
     pre-run: './examples/yaml/pipelines/pre_run.txt'
     on_exists: overwrite
@@ -31,6 +31,6 @@ pipelines:
     on_exists: overwrite
   - name: 'nf-sentieon'
     workspace: 'seqerakit-e2e/showcase'
-    compute-env: 'seqera_aws_virginia_fusionv2_nvme'
+    compute-env: '$AWS_COMPUTE_ENV_NAME'
     file-path: './examples/yaml/pipelines/nf_sentieon_pipeline.json'
     on_exists: overwrite

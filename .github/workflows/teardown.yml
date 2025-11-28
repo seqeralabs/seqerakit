@@ -26,23 +26,17 @@ jobs:
       SENTIEON_LICENSE_BASE64: ${{ secrets.SENTIEON_LICENSE_BASE64 }}
 
     steps:
-      - name: Check out source-code repository
-        uses: actions/checkout@v3
-
-      - name: Setup conda
-        uses: conda-incubator/setup-miniconda@v3
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
         with:
-          auto-update-conda: true
-          environment-file: environment.yml
-          python-version: '3.12'
-          mamba-version: '*'
-          channels: conda-forge,bioconda
-          activate-environment: seqerakit
-          use-mamba: true
+          enable-cache: true
+          cache-dependency-glob: 'uv.lock'
 
-      - name: Install pip & seqerakit
+      - name: Install Tower CLI v0.9.1
         run: |
-          pip install -e .
+          wget https://github.com/seqeralabs/tower-cli/releases/download/v0.10.3/tw-linux-x86_64 \
+          && chmod +x tw-linux-x86_64 \
+          && sudo mv tw-linux-x86_64 /usr/local/bin/tw
 
       - name: teardown
         run: |
@@ -51,4 +45,4 @@ jobs:
           echo $GOOGLE_KEY | base64 -d > $temp_file
           export GOOGLE_KEY=$temp_file
 
-          seqerakit --delete examples/yaml/seqerakit-e2e.yml
+          uv run seqerakit --delete examples/yaml/seqerakit-e2e.yml

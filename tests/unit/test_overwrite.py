@@ -260,6 +260,41 @@ class TestOverwrite(unittest.TestCase):
         with self.assertRaises(ResourceExistsError):
             self.overwrite.handle_overwrite("credentials", args, overwrite=False)
 
+    def test_multi_workspace_resource_check(self):
+        """Test that resources are correctly tracked per workspace."""
+        # Setup mock responses for different workspaces
+        workspace1_json = json.dumps({"name": "resource-in-workspace1"})
+        workspace2_json = json.dumps({"name": "resource-in-workspace2"})
+
+        # Configure mock to return different data based on workspace
+        def mock_json_response(*args, **kwargs):
+            if args[2] == "-w" and args[3] == "org1/workspace1":
+                return workspace1_json
+            elif args[2] == "-w" and args[3] == "org2/workspace2":
+                return workspace2_json
+            return json.dumps({})
+
+        json_method_mock = Mock(side_effect=mock_json_response)
+        self.mock_sp.configure_mock(**{"-o json": json_method_mock})
+
+        # Check first workspace - should find resource-in-workspace1
+        args1 = ["--name", "resource-in-workspace1", "--workspace", "org1/workspace1"]
+        with self.assertRaises(ResourceExistsError):
+            self.overwrite.handle_overwrite("credentials", args1)
+
+        # Should find resource-in-workspace2, not resource-in-workspace1
+        args2 = ["--name", "resource-in-workspace1", "--workspace", "org2/workspace2"]
+        self.overwrite.handle_overwrite("credentials", args2)  # Should not raise error
+
+        # Verify both workspaces were queried
+        json_method_mock.assert_any_call("credentials", "list", "-w", "org1/workspace1")
+        json_method_mock.assert_any_call("credentials", "list", "-w", "org2/workspace2")
+
+        # Check a resource that exists in workspace2
+        args3 = ["--name", "resource-in-workspace2", "--workspace", "org2/workspace2"]
+        with self.assertRaises(ResourceExistsError):
+            self.overwrite.handle_overwrite("credentials", args3)
+
 
 # TODO: tests for destroy and JSON caching
 

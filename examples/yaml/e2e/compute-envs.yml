@@ -10,10 +10,12 @@ compute-envs:
     fusion-v2: True
     wave: True
     fast-storage: True
+    snapshots: True
     instance-types: "r6id,c6id,m6id"
     no-ebs-auto-scale: True
     max-cpus: 500
     wait: AVAILABLE
+    labels: "workspace=seqerakit-e2e"
     on_exists: overwrite
   - name: 'seqera_azure_virginia'
     workspace: 'seqerakit-e2e/showcase'

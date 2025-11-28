@@ -96,12 +96,8 @@ class TestSeqeraPlatform(unittest.TestCase):
 
     def test_empty_string_argument(self):
         command = ["--profile", " ", "--config", "my_config"]
-        with self.assertRaises(ValueError) as context:
-            self.sp._check_empty_args(command)
-        self.assertIn(
-            "Empty string argument found for parameter '--profile'",
-            str(context.exception),
-        )
+        parsed_command = self.sp._check_empty_args(command)
+        self.assertEqual(parsed_command, ["--config", "my_config"])
 
     def test_no_empty_string_argument(self):
         command = ["--profile", "test_profile", "--config", "my_config"]
@@ -175,19 +171,15 @@ class TestSeqeraPlatformCLIArgs(unittest.TestCase):
             "-Djavax.net.ssl.trustStore=/absolute/path/to/cacerts", called_command
         )
 
-    def test_cli_args_exclusion_of_verbose(self):  # TODO: remove this test once fixed
+    def test_cli_args_allow_verbose_with_json(self):
         # Add --verbose to cli_args
         verbose_args = ["--verbose"]
 
-        # Check if ValueError is raised when initializing SeqeraPlatform with --verbose
-        with self.assertRaises(ValueError) as context:
-            seqeraplatform.SeqeraPlatform(cli_args=verbose_args)
-
-        # Check the error message
-        self.assertEqual(
-            str(context.exception),
-            "--verbose is not supported as a CLI argument to seqerakit.",
-        )
+        # Check that no ValueError is raised when initializing SeqeraPlatform with --verbose and json=True
+        try:
+            seqeraplatform.SeqeraPlatform(cli_args=verbose_args, json=True)
+        except ValueError:
+            self.fail("ValueError raised when --verbose is used with JSON mode")
 
     @patch("subprocess.Popen")
     def test_info_command_construction(self, mock_subprocess):

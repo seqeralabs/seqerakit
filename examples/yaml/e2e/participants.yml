@@ -7,5 +7,5 @@ participants:
   - name: 'adam.talbot@seqera.io'
     type: 'MEMBER'
     workspace: 'seqerakit-e2e/showcase'
-    role: 'LAUNCH'
+    role: 'MAINTAIN'
     on_exists: overwrite

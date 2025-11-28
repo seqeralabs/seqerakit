@@ -16,11 +16,32 @@ You will need to have an account on Seqera Platform (see [Plans and pricing](htt
 
 `seqerakit` requires the following dependencies:
 
-1. [Seqera Platform CLI (`>=0.9.2`)](https://github.com/seqeralabs/tower-cli#1-installation)
+1. [Seqera Platform CLI (`>=0.11.0`)](https://github.com/seqeralabs/tower-cli#1-installation)
 
 2. [Python (`>=3.8`)](https://www.python.org/downloads/)
 
 3. [PyYAML](https://pypi.org/project/PyYAML/)
+
+### uv (Recommended)
+
+[uv](https://docs.astral.sh/uv/) is a fast Python package manager that handles dependencies and virtual environments automatically. To install `seqerakit` with uv:
+
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+2. Run seqerakit directly (this will automatically install seqerakit and its dependencies):
+
+```console
+uv run seqerakit --help
+```
+
+Or install it globally:
+
+```console
+uv tool install seqerakit
+seqerakit --help
+```
+
+**Note**: You will still need to install the [Seqera Platform CLI](https://github.com/seqeralabs/tower-cli#1-installation) separately.
 
 ### Conda
 
@@ -34,8 +55,8 @@ conda config --set channel_priority strict
 
 You can then create a conda environment with `seqerakit` installed using the following:
 
-```
-conda env create -n seqerakit seqerakit
+```console
+conda create -n seqerakit seqerakit
 conda activate seqerakit
 ```
 
@@ -56,6 +77,24 @@ pip install --upgrade --force-reinstall seqerakit
 ### Local development installation
 
 You can install the development branch of `seqerakit` on your local machine to test feature updates of the tool. Before proceeding, ensure that you have [Python](https://www.python.org/downloads/) and [Git](https://git-scm.com/downloads) installed on your system.
+
+#### Using uv (Recommended)
+
+1. Clone the repository and navigate to it:
+
+```bash
+git clone https://github.com/seqeralabs/seqera-kit.git
+cd seqera-kit
+git checkout dev
+```
+
+2. Run seqerakit directly from the source (uv will handle dependencies automatically):
+
+```bash
+uv run seqerakit --help
+```
+
+#### Using pip
 
 1. To install directly from pip:
 
@@ -227,11 +266,11 @@ For example:
 seqerakit hello-world-config.yml --cli="-Djavax.net.ssl.trustStore=/absolute/path/to/cacerts"
 ```
 
-<b>Note</b>: Use of `--verbose` option for the `tw` CLI is currently not supported by `seqerakit`. Supplying `--cli="--verbose"` will raise an error.
+<b>Note</b>: The `--verbose` option for the `tw` CLI can be used with `seqerakit`. When used with `on_exists: overwrite`, the verbose flag will be temporarily removed from overwrite operations to avoid JSON parsing conflicts, but will still be applied to other operations.
 
 ## Specify targets
 
-When using a YAML file as input that defines multiple resources, you can use the `--targets` flag to specify which resources to create. This flag takes a comma-separated list of resource names.
+When using a YAML file as input that defines multiple resources, you can use the `--targets` flag to specify which resource types to create. This flag takes a comma-separated list of resource types.
 
 For example, given a YAML file that defines the following resources:
 
@@ -250,6 +289,10 @@ pipelines:
     url: 'https://github.com/nextflow-io/hello'
     workspace: 'seqerakit/test'
     compute-env: 'compute-env'
+  - name: 'nf-core-rnaseq'
+    url: 'https://github.com/nf-core/rnaseq'
+    workspace: 'seqerakit/test'
+    compute-env: 'compute-env'
 ```
 
 You can target the creation of `pipelines` only by running:
@@ -266,6 +309,28 @@ You can also specify multiple resources to create by separating them with commas
 
 ```bash
 seqerakit test.yml --targets workspaces,pipelines
+```
+
+### Targeting specific resources by name
+
+Use the `--target` flag to target specific resources by name within a resource type. The format is `--target <resource-type>=<name>`.
+
+For example, to create only the pipeline named `hello-world-test-seqerakit`:
+
+```bash
+seqerakit test.yml --target pipelines=hello-world-test-seqerakit
+```
+
+You can specify multiple names using comma-separated values:
+
+```bash
+seqerakit test.yml --target pipelines=hello-world-test-seqerakit,nf-core-rnaseq
+```
+
+Or use multiple `--target` flags:
+
+```bash
+seqerakit test.yml --target pipelines=hello-world-test-seqerakit --target compute-envs=compute-env
 ```
 
 ## YAML Configuration Options

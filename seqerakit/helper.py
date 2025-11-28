@@ -340,7 +340,7 @@ def parse_block(block_name: str, item: Dict[str, Any], sp=None) -> Dict[str, Any
     }
 
 
-def parse_yaml_block(yaml_data, block_name, sp=None):
+def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
     # Get the name of the specified block/resource.
     block = yaml_data.get(block_name)
 
@@ -359,6 +359,11 @@ def parse_yaml_block(yaml_data, block_name, sp=None):
 
     # Iterate over each validated item in the block.
     for item in validated_block:
+        # Filter by name if name_filter is specified
+        item_name = item.get("name") or item.get("user") or item.get("email")
+        if name_filter and item_name not in name_filter:
+            continue
+
         cmd_args = parse_block(block_name, item, sp)
         name = find_name(cmd_args)
         if name in name_values:

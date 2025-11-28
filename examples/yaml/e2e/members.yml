@@ -1,4 +1,4 @@
 members:
-   - user: 'laramie.lindsey+owner@seqera.io'
+   - user: 'adam.talbot@seqera.io'
      organization: 'seqerakit-e2e'
      on_exists: ignore

@@ -3,9 +3,9 @@
 ##   1. With a provided template using `template:` option
 ##   2. With a custom template using `custom-template:` option
 ##   3. A template image customized with conda packages using `conda-env-yml:` option
-##   4. Mounting data resources using `mount-data-resource-uris:` option
-##   5. Mounting data using data link names using `mount-data:` option
-##   6. Mounting data using data link IDs using `mount-data-ids:` option
+##   4. Mounting data-link URIs using `mount-data-uris:` option
+##   5. Mounting data-link names using `mount-data:` option
+##   6. Mounting data-link IDs using `mount-data-ids:` option
 
 # Mounting with a template image
 studios:
@@ -18,7 +18,7 @@ studios:
     cpu: 2                                                                    # optional
     memory: 4096                                                              # optional
     auto-start: False                                                         # optional
-    mount-data-resource-uris: 's3://my_bucket/my_data'                        # optional, comma separated list
+    mount-data-uris: 's3://my_bucket/my_data'                                 # optional, comma separated list
     on_exists: ignore                                                         # optional
     lifespan: 8                                                               # optional, integer for hours
     private: True                                                             # optional
@@ -34,7 +34,7 @@ studios:
     cpu: 2                                                                      # optional
     memory: 4096                                                                # optional
     auto-start: True                                                            # optional
-    mount-data-resource-refs: 's3://my_bucket/my_data'                          # optional, comma separated list
+    mount-data-uris: 's3://my_bucket/my_data'                                   # optional, comma separated list
     on_exists: ignore                                                           # optional
 
 # Mounting with a template image customized with conda packages
@@ -48,5 +48,5 @@ studios:
     cpu: 2                                                                      # optional
     memory: 4096                                                                # optional
     auto-start: False                                                           # optional
-    mount-data-resource-refs: 's3://my_bucket/my_data'                          # optional, comma separated list
+    mount-data-uris: 's3://my_bucket/my_data'                                   # optional, comma separated list
     on_exists: ignore                                                           # optional
