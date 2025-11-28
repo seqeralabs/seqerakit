@@ -4,28 +4,25 @@ from .base import SeqeraResource
 
 class Pipeline(SeqeraResource):
     name: str
-    workspace: str
-    work_dir: Optional[str] = Field(default="", alias="work-dir", serialization_alias="workDir")
-    revision: Optional[str] = Field(default="", alias="revision")
-    profile: Optional[str] = Field(default="standard", alias="profile")
-    compute_env: Optional[str] = Field(default="", alias="compute-env")
-    url: Optional[str] = Field(default="", serialization_alias="pipeline")
+    url: str
+    workspace: Optional[str] = None
+    description: Optional[str] = None
     labels: Optional[str] = None
-    config_text: Optional[str] = Field(None, alias="config-text", serialization_alias="configText")
-    params_text: Optional[str] = Field(None, alias="params-text", serialization_alias="paramsText")
-    pull_latest: Optional[bool] = Field(default=False, alias="pull-latest", serialization_alias="pullLatest")
-    
-    class Config:
-        extra = "ignore"
-        populate_by_alias = True
-
-    def dump_dict(self) -> dict:
-        """For dumping - includes all fields even if None"""
-        return self.dict(by_alias=True, exclude_none=False)
-    
-    def input_dict(self) -> dict:
-        """For input processing - excludes None values"""
-        return self.dict(by_alias=True, exclude_none=True)
+    compute_env: Optional[str] = Field(default=None, alias="compute-env")
+    work_dir: Optional[str] = Field(default=None, alias="work-dir")
+    profile: Optional[str] = None
+    params_file: Optional[str] = Field(default=None, alias="params-file")
+    revision: Optional[str] = None
+    config: Optional[str] = None
+    pre_run: Optional[str] = Field(default=None, alias="pre-run")
+    post_run: Optional[str] = Field(default=None, alias="post-run")
+    pull_latest: Optional[bool] = Field(default=None, alias="pull-latest")
+    stub_run: Optional[bool] = Field(default=None, alias="stub-run")
+    main_script: Optional[str] = Field(default=None, alias="main-script")
+    entry_name: Optional[str] = Field(default=None, alias="entry-name")
+    schema_name: Optional[str] = Field(default=None, alias="schema-name")
+    user_secrets: Optional[str] = Field(default=None, alias="user-secrets")
+    workspace_secrets: Optional[str] = Field(default=None, alias="workspace-secrets")
 
         
     @classmethod

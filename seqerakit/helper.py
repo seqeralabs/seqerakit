@@ -22,8 +22,23 @@ from seqerakit import utils
 import sys
 import json
 from seqerakit.on_exists import OnExists
-from seqerakit.models.pipeline import Pipeline
-from seqerakit.models.compute_env import ComputeEnv
+from seqerakit.models import (
+    Pipeline,
+    ComputeEnv,
+    Organization,
+    Workspace,
+    Team,
+    Label,
+    Member,
+    Participant,
+    Credential,
+    Dataset,
+    Secret,
+    Action,
+    DataLink,
+    Studio,
+    Launch,
+)
 from pydantic import ValidationError
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, List, Tuple
@@ -255,22 +270,46 @@ def validate_yaml_block(block_name: str, items: list) -> list:
     model_map = {
         "pipelines": Pipeline,
         "compute-envs": ComputeEnv,
-        # TODO: add more models as needed once we have them
+        "organizations": Organization,
+        "workspaces": Workspace,
+        "teams": Team,
+        "labels": Label,
+        "members": Member,
+        "participants": Participant,
+        "credentials": Credential,
+        "datasets": Dataset,
+        "secrets": Secret,
+        "actions": Action,
+        "data-links": DataLink,
+        "studios": Studio,
+        "launch": Launch,
     }
-    
+
     if block_name not in model_map:
         return items  # No validation for unsupported types
-    
+
     model_class = model_map[block_name]
     validated_items = []
-    
+
     for item in items:
+        # Preserve on_exists and overwrite fields
+        on_exists = item.get("on_exists")
+        overwrite = item.get("overwrite")
+
         try:
             validated_item = model_class(**item)
-            validated_items.append(validated_item.input_dict())
+            result = validated_item.input_dict()
+
+            # Re-add on_exists/overwrite if they were present
+            if on_exists is not None:
+                result["on_exists"] = on_exists
+            if overwrite is not None:
+                result["overwrite"] = overwrite
+
+            validated_items.append(result)
         except ValidationError as e:
             raise ValueError(f"Validation error in {block_name}: {e}")
-    
+
     return validated_items
 
 
@@ -527,4 +566,16 @@ def find_name(cmd_args):
                     return result
         return None
 
+    # Handle new Command structure
+    if "command" in cmd_args:
+        command = cmd_args["command"]
+        # Handle tuple of command and member commands (for teams)
+        if isinstance(command, tuple):
+            main_command, _ = command
+            return search(main_command.args if hasattr(main_command, 'args') else main_command)
+        # Handle regular Command object
+        elif hasattr(command, 'args'):
+            return search(command.args)
+
+    # Legacy format
     return search(cmd_args.get("cmd_args", []))

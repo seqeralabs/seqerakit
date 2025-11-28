@@ -6,39 +6,34 @@ class ComputeEnv(SeqeraResource):
     type: str
     config_mode: str = Field(alias="config-mode")
     name: str
-    credentials: str = Field(alias="credentials")
-    workspace: str
+    credentials: Optional[str] = None
+    workspace: Optional[str] = None
     work_dir: str = Field(alias="work-dir")
     region: str
-    wave_enabled: Optional[bool] = Field(alias="wave-enabled")
-    fusion2_enabled: Optional[bool] = Field(alias="fusion2-enabled")
-    nvnme_storage_enabled: Optional[bool] = Field(alias="nvnme-storage-enabled")
-    provisioning_model: Optional[str] = Field(alias="provisioning-model")
-    instance_types: Optional[list[str]] = Field(alias="instance-types")
-    min_cpus: Optional[int] = Field(alias="min-cpus")
     max_cpus: int = Field(alias="max-cpus")
-    ebs_auto_scale: Optional[bool] = Field(alias="no-ebs-auto-scale")
-    labels: Optional[list[str]] = Field(alias="labels")
-    vpc_id: Optional[str] = Field(alias="vpc-id")
-    subnets: Optional[list[str]] = Field(alias="subnets")
-    security_groups: Optional[list[str]] = Field(alias="security-groups")
-    allow_buckets: Optional[list[str]] = Field(alias="allow-buckets")
-    ebs_blocksize: Optional[int] = Field(alias="ebs-blocksize")
-    head_job_cpus: Optional[int] = Field(alias="head-job-cpus")
-    head_job_memory: Optional[int] = Field(alias="head-job-memory")
-    gpu: Optional[bool] = Field(alias="gpu")
-
-    class Config:
-        extra = "ignore"
-        populate_by_alias = True
-        
-    def dump_dict(self) -> dict:
-        """For dumping - includes all fields even if None"""
-        return self.dict(by_alias=True, exclude_none=False)
-    
-    def input_dict(self) -> dict:
-        """For input processing - excludes None values"""
-        return self.dict(by_alias=True, exclude_none=True)
+    wave: Optional[bool] = None
+    wave_enabled: Optional[bool] = Field(default=None, alias="wave-enabled")
+    fusion_v2: Optional[bool] = Field(default=None, alias="fusion-v2")
+    fusion2_enabled: Optional[bool] = Field(default=None, alias="fusion2-enabled")
+    fast_storage: Optional[bool] = Field(default=None, alias="fast-storage")
+    nvnme_storage_enabled: Optional[bool] = Field(default=None, alias="nvnme-storage-enabled")
+    snapshots: Optional[bool] = None
+    fargate: Optional[bool] = None
+    provisioning_model: Optional[str] = Field(default=None, alias="provisioning-model")
+    instance_types: Optional[list[str]] = Field(default=None, alias="instance-types")
+    min_cpus: Optional[int] = Field(default=None, alias="min-cpus")
+    no_ebs_auto_scale: Optional[bool] = Field(default=None, alias="no-ebs-auto-scale")
+    labels: Optional[str] = None
+    vpc_id: Optional[str] = Field(default=None, alias="vpc-id")
+    subnets: Optional[list[str]] = None
+    security_groups: Optional[list[str]] = Field(default=None, alias="security-groups")
+    allow_buckets: Optional[list[str]] = Field(default=None, alias="allow-buckets")
+    ebs_blocksize: Optional[int] = Field(default=None, alias="ebs-blocksize")
+    head_job_cpus: Optional[int] = Field(default=None, alias="head-job-cpus")
+    head_job_memory: Optional[int] = Field(default=None, alias="head-job-memory")
+    gpu: Optional[bool] = None
+    wait: Optional[str] = None
+    preserve_resources: Optional[bool] = Field(default=None, alias="preserve-resources")
 
         
     @classmethod
