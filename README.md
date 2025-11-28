@@ -18,7 +18,7 @@ You will need to have an account on Seqera Platform (see [Plans and pricing](htt
 
 1. [Seqera Platform CLI (`>=0.11.0`)](https://github.com/seqeralabs/tower-cli#1-installation)
 
-2. [Python (`>=3.8`)](https://www.python.org/downloads/)
+2. [Python (`>=3.10`)](https://www.python.org/downloads/)
 
 3. [PyYAML](https://pypi.org/project/PyYAML/)
 
