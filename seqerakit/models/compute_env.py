@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 from typing import Optional
 from seqerakit.models.base import SeqeraResource
 
@@ -35,7 +35,14 @@ class ComputeEnv(SeqeraResource):
     wait: Optional[str] = None
     preserve_resources: Optional[bool] = Field(default=None, alias="preserve-resources")
 
-        
+    @field_validator('instance_types', 'subnets', 'security_groups', 'allow_buckets', mode='before')
+    @classmethod
+    def split_comma_separated(cls, v):
+        """Convert comma-separated strings to lists for CLI compatibility"""
+        if isinstance(v, str):
+            return [item.strip() for item in v.split(',') if item.strip()]
+        return v
+
     @classmethod
     def from_cli_response(cls, data: dict) -> "ComputeEnv":
         """

@@ -296,6 +296,11 @@ def validate_yaml_block(block_name: str, items: list) -> list:
         on_exists = item.get("on_exists")
         overwrite = item.get("overwrite")
 
+        # Skip validation for items with file-path (JSON import)
+        if "file-path" in item:
+            validated_items.append(item)
+            continue
+
         try:
             validated_item = model_class(**item)
             result = validated_item.input_dict()
@@ -333,9 +338,9 @@ def parse_block(block_name: str, item: Dict[str, Any], sp=None) -> Dict[str, Any
         on_exists = on_exists_str
     
     command_result = builder.build_command(item_copy, sp)
-    
+
     return {
-        "command": command_result,
+        "cmd_args": command_result,
         "on_exists": on_exists
     }
 
@@ -379,7 +384,7 @@ def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
     return block_name, cmd_args_list
 
 
-def parse_all_yaml(file_paths, destroy=False, targets=None, sp=None):
+def parse_all_yaml(file_paths, destroy=False, targets=None, target=None, sp=None):
     # If multiple yamls, merge them into one dictionary
     merged_data = {}
 
@@ -572,8 +577,8 @@ def find_name(cmd_args):
         return None
 
     # Handle new Command structure
-    if "command" in cmd_args:
-        command = cmd_args["command"]
+    if "cmd_args" in cmd_args:
+        command = cmd_args["cmd_args"]
         # Handle tuple of command and member commands (for teams)
         if isinstance(command, tuple):
             main_command, _ = command
@@ -584,3 +589,94 @@ def find_name(cmd_args):
 
     # Legacy format
     return search(cmd_args.get("cmd_args", []))
+
+
+def handle_generic_block(sp, block, cmd_args, method_name="add"):
+    """Generic handler for most blocks, with optional method name"""
+    method = getattr(sp, block)
+    # Extract args from Command object
+    if isinstance(cmd_args, Command):
+        args = cmd_args.args
+        method_name = cmd_args.method
+    else:
+        args = cmd_args
+
+    if method_name is None:
+        method(*args)
+    else:
+        method(method_name, *args)
+
+
+def handle_teams(sp, cmd_args):
+    """Handler for teams with member management"""
+    # Extract command and member commands from tuple
+    if isinstance(cmd_args, tuple):
+        main_cmd, members_cmd_args = cmd_args
+        sp.teams("add", *main_cmd.args)
+        for member_cmd in members_cmd_args:
+            sp.teams("members", *member_cmd.args)
+    elif isinstance(cmd_args, Command):
+        sp.teams(cmd_args.method, *cmd_args.args)
+    else:
+        # Legacy format
+        cmd_args_list, members_cmd_args = cmd_args
+        sp.teams("add", *cmd_args_list)
+        for sublist in members_cmd_args:
+            sp.teams("members", *sublist)
+
+
+def handle_members(sp, cmd_args):
+    """Handler for organization members"""
+    if isinstance(cmd_args, Command):
+        sp.members(cmd_args.method, *cmd_args.args)
+    else:
+        sp.members("add", *cmd_args)
+
+
+def handle_participants(sp, cmd_args):
+    """Handler for workspace participants with role updates"""
+    if isinstance(cmd_args, Command):
+        args = cmd_args.args
+    else:
+        args = cmd_args
+
+    # First add participant without role
+    skip_key = "--role"
+    new_args = [
+        arg
+        for i, arg in enumerate(args)
+        if not (args[i - 1] == skip_key or arg == skip_key)
+    ]
+    sp.participants("add", *new_args)
+    # Then update with role
+    sp.participants("update", *args)
+
+
+def handle_compute_envs(sp, cmd_args):
+    """Handler for compute environments (import vs add)"""
+    if isinstance(cmd_args, Command):
+        args = cmd_args.args
+        method_name = cmd_args.method
+    else:
+        args = cmd_args
+        json_file = any(".json" in arg for arg in args)
+        method_name = "import" if json_file else "add"
+
+    sp.compute_envs(method_name, *args)
+
+
+def handle_pipelines(sp, cmd_args):
+    """Handler for pipelines (import vs add)"""
+    if isinstance(cmd_args, Command):
+        args = cmd_args.args
+        method_name = cmd_args.method
+    else:
+        args = cmd_args
+        # Determine method based on args
+        method_name = "add"
+        for arg in args:
+            if ".json" in arg:
+                method_name = "import"
+                break
+
+    sp.pipelines(method_name, *args)
