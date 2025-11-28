@@ -206,7 +206,7 @@ def find_yaml_files(path_list=None):
 
 @app.command()
 def main(
-    yaml: list[str] | None = typer.Argument(
+    yaml_files: list[str] | None = typer.Argument(
         None,
         help="One or more YAML files with Seqera Platform resource definitions.",
     ),
@@ -340,7 +340,7 @@ def main(
         logging.error(e)
         raise typer.Exit(code=1)
 
-    yaml_files = find_yaml_files(yaml)
+    yaml_files_list = find_yaml_files(yaml_files)
 
     block_manager = BlockParser(
         sp,
@@ -361,7 +361,7 @@ def main(
     # and get a dictionary of command line arguments
     try:
         cmd_args_dict = helper.parse_all_yaml(
-            yaml_files, destroy=delete, targets=targets, target=target, sp=sp
+            yaml_files_list, destroy=delete, targets=targets, target=target, sp=sp
         )
         for block, args_list in cmd_args_dict.items():
             for args in args_list:
