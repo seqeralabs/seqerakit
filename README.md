@@ -270,7 +270,7 @@ seqerakit hello-world-config.yml --cli="-Djavax.net.ssl.trustStore=/absolute/pat
 
 ## Specify targets
 
-When using a YAML file as input that defines multiple resources, you can use the `--targets` flag to specify which resources to create. This flag takes a comma-separated list of resource names.
+When using a YAML file as input that defines multiple resources, you can use the `--targets` flag to specify which resource types to create. This flag takes a comma-separated list of resource types.
 
 For example, given a YAML file that defines the following resources:
 
@@ -289,6 +289,10 @@ pipelines:
     url: 'https://github.com/nextflow-io/hello'
     workspace: 'seqerakit/test'
     compute-env: 'compute-env'
+  - name: 'nf-core-rnaseq'
+    url: 'https://github.com/nf-core/rnaseq'
+    workspace: 'seqerakit/test'
+    compute-env: 'compute-env'
 ```
 
 You can target the creation of `pipelines` only by running:
@@ -305,6 +309,28 @@ You can also specify multiple resources to create by separating them with commas
 
 ```bash
 seqerakit test.yml --targets workspaces,pipelines
+```
+
+### Targeting specific resources by name
+
+Use the `--target` flag to target specific resources by name within a resource type. The format is `--target <resource-type>=<name>`.
+
+For example, to create only the pipeline named `hello-world-test-seqerakit`:
+
+```bash
+seqerakit test.yml --target pipelines=hello-world-test-seqerakit
+```
+
+You can specify multiple names using comma-separated values:
+
+```bash
+seqerakit test.yml --target pipelines=hello-world-test-seqerakit,nf-core-rnaseq
+```
+
+Or use multiple `--target` flags:
+
+```bash
+seqerakit test.yml --target pipelines=hello-world-test-seqerakit --target compute-envs=compute-env
 ```
 
 ## YAML Configuration Options

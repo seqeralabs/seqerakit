@@ -610,6 +610,103 @@ pipelines:
     assert "pipelines" in result
 
 
+def test_target_with_name_filter():
+    """Test --target option filters resources by name."""
+    yaml_data = """
+pipelines:
+  - name: pipeline1
+    workspace: workspace1
+    description: Pipeline 1
+  - name: pipeline2
+    workspace: workspace1
+    description: Pipeline 2
+  - name: pipeline3
+    workspace: workspace1
+    description: Pipeline 3
+"""
+    with patch("builtins.open", lambda f, _: StringIO(yaml_data)):
+        result = helper.parse_all_yaml(
+            ["dummy_path.yaml"], target=["pipelines=pipeline1"]
+        )
+
+    assert "pipelines" in result
+    assert len(result["pipelines"]) == 1
+    # Check that only pipeline1 is in the result
+    cmd_args = result["pipelines"][0]["cmd_args"]
+    assert "--name" in cmd_args
+    name_index = cmd_args.index("--name")
+    assert cmd_args[name_index + 1] == "pipeline1"
+
+
+def test_target_with_multiple_names():
+    """Test --target option with comma-separated names."""
+    yaml_data = """
+pipelines:
+  - name: pipeline1
+    workspace: workspace1
+    description: Pipeline 1
+  - name: pipeline2
+    workspace: workspace1
+    description: Pipeline 2
+  - name: pipeline3
+    workspace: workspace1
+    description: Pipeline 3
+"""
+    with patch("builtins.open", lambda f, _: StringIO(yaml_data)):
+        result = helper.parse_all_yaml(
+            ["dummy_path.yaml"], target=["pipelines=pipeline1,pipeline3"]
+        )
+
+    assert "pipelines" in result
+    assert len(result["pipelines"]) == 2
+
+    # Extract names from results
+    names = []
+    for pipeline in result["pipelines"]:
+        cmd_args = pipeline["cmd_args"]
+        name_index = cmd_args.index("--name")
+        names.append(cmd_args[name_index + 1])
+
+    assert "pipeline1" in names
+    assert "pipeline3" in names
+    assert "pipeline2" not in names
+
+
+def test_target_multiple_resource_types():
+    """Test multiple --target options for different resource types."""
+    yaml_data = """
+organizations:
+  - name: org1
+    description: Organization 1
+  - name: org2
+    description: Organization 2
+pipelines:
+  - name: pipeline1
+    workspace: workspace1
+    description: Pipeline 1
+  - name: pipeline2
+    workspace: workspace1
+    description: Pipeline 2
+"""
+    with patch("builtins.open", lambda f, _: StringIO(yaml_data)):
+        result = helper.parse_all_yaml(
+            ["dummy_path.yaml"],
+            target=["organizations=org1", "pipelines=pipeline2"],
+        )
+
+    assert "organizations" in result
+    assert len(result["organizations"]) == 1
+    assert "pipelines" in result
+    assert len(result["pipelines"]) == 1
+
+    # Verify correct items were selected
+    org_args = result["organizations"][0]["cmd_args"]
+    assert org_args[org_args.index("--name") + 1] == "org1"
+
+    pipeline_args = result["pipelines"][0]["cmd_args"]
+    assert pipeline_args[pipeline_args.index("--name") + 1] == "pipeline2"
+
+
 def test_process_params_dict_basic():
     """Test basic params dictionary processing without dataset resolution."""
     params = {"input": "s3://bucket/data", "outdir": "s3://bucket/results"}

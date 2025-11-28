@@ -25,7 +25,7 @@ import json
 from seqerakit.on_exists import OnExists
 
 
-def parse_yaml_block(yaml_data, block_name, sp=None):
+def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
     # Get the name of the specified block/resource.
     block = yaml_data.get(block_name)
 
@@ -42,6 +42,11 @@ def parse_yaml_block(yaml_data, block_name, sp=None):
     # Iterate over each item in the block.
     # TODO: fix for resources that can be duplicate named in an org
     for item in block:
+        # Filter by name if name_filter is specified
+        item_name = item.get("name") or item.get("user") or item.get("email")
+        if name_filter and item_name not in name_filter:
+            continue
+
         cmd_args = parse_block(block_name, item, sp)
         name = find_name(cmd_args)
         if name in name_values:
@@ -57,7 +62,17 @@ def parse_yaml_block(yaml_data, block_name, sp=None):
     return block_name, cmd_args_list
 
 
-def parse_all_yaml(file_paths, destroy=False, targets=None, sp=None):
+def parse_all_yaml(file_paths, destroy=False, targets=None, target=None, sp=None):
+    # Parse --target options into a dict: {"resource_type": ["name1", "name2"]}
+    target_filters = {}
+    if target:
+        for t in target:
+            if "=" in t:
+                resource_type, names = t.split("=", 1)
+                target_filters.setdefault(resource_type, []).extend(names.split(","))
+            else:
+                target_filters[t] = None  # None means all items of this type
+
     # If multiple yamls, merge them into one dictionary
     merged_data = {}
 
@@ -115,6 +130,10 @@ def parse_all_yaml(file_paths, destroy=False, targets=None, sp=None):
         target_blocks = set(targets.split(","))
         block_names = [block for block in block_names if block in target_blocks]
 
+    # Filter blocks based on --target if provided
+    if target_filters:
+        block_names = [block for block in block_names if block in target_filters]
+
     # Define the order in which the resources should be created.
     resource_order = [
         "organizations",
@@ -145,7 +164,10 @@ def parse_all_yaml(file_paths, destroy=False, targets=None, sp=None):
     for block_name in resource_order:
         if block_name in block_names:
             # Parse the block and add its command line arguments to the dictionary.
-            block_name, cmd_args_list = parse_yaml_block(merged_data, block_name, sp)
+            name_filter = target_filters.get(block_name) if target_filters else None
+            block_name, cmd_args_list = parse_yaml_block(
+                merged_data, block_name, sp, name_filter=name_filter
+            )
             cmd_args_dict[block_name] = cmd_args_list
 
     # Return the dictionary of command arguments.
