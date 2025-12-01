@@ -14,7 +14,8 @@
 
 import os
 import unittest
-from seqerakit.utils import resolve_env_var
+import yaml
+from seqerakit.utils import resolve_env_var, create_temp_yaml
 
 
 class TestResolveEnvVar(unittest.TestCase):
@@ -80,6 +81,40 @@ class TestResolveEnvVar(unittest.TestCase):
         """Test Nextflow reserved variables"""
         result = resolve_env_var("$${projectDir}/${TEST_VAR}")
         self.assertEqual(result, "${projectDir}/test_value")
+
+
+class TestCreateTempNestedYaml(unittest.TestCase):
+    """Test create_temp_yaml with lists and maps (issue #245)"""
+
+    def setUp(self):
+        os.environ["TEST_VAR"] = "test_value"
+        os.environ["ENV"] = "production"
+
+    def tearDown(self):
+        for var in ["TEST_VAR", "ENV"]:
+            if var in os.environ:
+                del os.environ[var]
+
+    def test_create_temp_yaml_with_lists_and_maps(self):
+        """Test that lists and maps are preserved with env var resolution"""
+        params = {
+            "map_param": {"key": "$TEST_VAR"},
+            "list_parameter": ["value1_${ENV}", "value2_${ENV}"],
+            "nested": {"inner_list": ["$TEST_VAR", 42, True]},
+            "simple_param": "$TEST_VAR",
+        }
+        temp_file = create_temp_yaml(params)
+
+        with open(temp_file, "r") as f:
+            result = yaml.safe_load(f)
+
+        self.assertEqual(result["map_param"], {"key": "test_value"})
+        self.assertEqual(
+            result["list_parameter"], ["value1_production", "value2_production"]
+        )
+        self.assertEqual(result["nested"]["inner_list"], ["test_value", 42, True])
+        self.assertEqual(result["simple_param"], "test_value")
+        os.unlink(temp_file)
 
 
 if __name__ == "__main__":
