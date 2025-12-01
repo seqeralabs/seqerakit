@@ -121,10 +121,53 @@ def quoted_str_representer(dumper, data):
 yaml.add_representer(quoted_str, quoted_str_representer)
 
 
+def resolve_nested_env_vars(value):
+    """
+    Resolve environment variables in a value, handling strings, lists, and dicts.
+    Uses iterative processing with a stack to avoid deep recursion.
+    """
+    # Process the value using a stack-based approach
+    # Each stack item is (container, key/index, value_to_process)
+    result = _process_single_value(value)
+
+    if not isinstance(result, (list, dict)):
+        return result
+
+    # Use a stack to process nested structures iteratively
+    stack = [
+        (result, k, v)
+        for k, v in (enumerate(result) if isinstance(result, list) else result.items())
+    ]
+
+    while stack:
+        container, key, val = stack.pop()
+        processed = _process_single_value(val)
+        container[key] = processed
+
+        if isinstance(processed, dict):
+            stack.extend((processed, k, v) for k, v in processed.items())
+        elif isinstance(processed, list):
+            stack.extend((processed, i, v) for i, v in enumerate(processed))
+
+    return result
+
+
+def _process_single_value(value):
+    """Process a single value, resolving env vars for strings."""
+    if isinstance(value, str):
+        return quoted_str(resolve_env_var(value))
+    if isinstance(value, dict):
+        return dict(value)  # shallow copy for in-place modification
+    if isinstance(value, list):
+        return list(value)  # shallow copy for in-place modification
+    return value
+
+
 def create_temp_yaml(params_dict, params_file=None):
     """
     Create a temporary YAML file given a dictionary.
     Optionally combine with contents from a JSON or YAML file if provided.
+    Supports nested lists and maps with environment variable resolution.
     """
 
     def read_file(file_path):
@@ -144,10 +187,10 @@ def create_temp_yaml(params_dict, params_file=None):
     # Filter out None values but keep empty strings
     combined_params = {k: v for k, v in combined_params.items() if v is not None}
 
-    for key, value in combined_params.items():
-        if isinstance(value, str):
-            resolved_value = resolve_env_var(value)
-            combined_params[key] = quoted_str(resolved_value)
+    # Resolve environment variables in all values (strings, lists, dicts)
+    combined_params = {
+        k: resolve_nested_env_vars(v) for k, v in combined_params.items()
+    }
 
     with tempfile.NamedTemporaryFile(
         mode="w", delete=False, suffix=".yaml"
