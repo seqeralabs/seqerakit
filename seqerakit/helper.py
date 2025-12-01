@@ -36,11 +36,26 @@ def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
     # Initialize an empty list to hold the lists of command line arguments.
     cmd_args_list = []
 
-    # Initialize a set to track the --name values within the block.
-    name_values = set()
+    # Initialize a set to track unique (workspace, name) or (organization, name) tuples.
+    # Workspace-scoped resources allow duplicate names across different workspaces.
+    # Organization-scoped resources allow duplicate names across different organizations.
+    name_keys = set()
 
-    # Iterate over each item in the block.
-    # TODO: fix for resources that can be duplicate named in an org
+    # Resources scoped to workspace (can have same name in different workspaces)
+    workspace_scoped = {
+        "compute-envs",
+        "credentials",
+        "pipelines",
+        "datasets",
+        "secrets",
+        "actions",
+        "participants",
+        "data-links",
+        "studios",
+    }
+    # Resources scoped to organization
+    org_scoped = {"workspaces", "teams", "labels", "members"}
+
     for item in block:
         # Filter by name if name_filter is specified
         item_name = item.get("name") or item.get("user") or item.get("email")
@@ -49,12 +64,23 @@ def parse_yaml_block(yaml_data, block_name, sp=None, name_filter=None):
 
         cmd_args = parse_block(block_name, item, sp)
         name = find_name(cmd_args)
-        if name in name_values:
+
+        # Determine the scope key for duplicate detection
+        if block_name in workspace_scoped:
+            scope = item.get("workspace")
+        elif block_name in org_scoped:
+            scope = item.get("organization")
+        else:
+            scope = None
+
+        key = (scope, name) if scope else name
+        if key in name_keys:
+            scope_msg = f" in {scope}" if scope else ""
             raise ValueError(
                 f" Duplicate name key specified in config file"
-                f" for {block_name}: {name}. Please specify a unique value."
+                f" for {block_name}: {name}{scope_msg}. Please specify a unique value."
             )
-        name_values.add(name)
+        name_keys.add(key)
 
         cmd_args_list.append(cmd_args)
 
