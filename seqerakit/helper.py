@@ -183,7 +183,7 @@ def parse_block(block_name, item, sp=None):
         "teams": parse_teams_block,
         "datasets": parse_datasets_block,
         "pipelines": lambda x, s: parse_pipelines_block(x, sp=s),
-        "launch": parse_launch_block,
+        "launch": lambda x, s: parse_launch_block(x, sp=s),
     }
 
     # Use the generic block function as a default.
