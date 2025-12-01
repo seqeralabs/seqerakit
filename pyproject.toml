@@ -3,7 +3,7 @@ name = "seqerakit"
 version = "0.5.6"
 description = "Automate creation of Seqera Platform resources"
 readme = "README.md"
-requires-python = ">=3.8,<4"
+requires-python = ">=3.10,<4"
 keywords = [
     "nextflow",
     "bioinformatics",
@@ -20,7 +20,13 @@ authors = [
 # TODO
 maintainers = [{ name = "Esha Joshi", email = "esha.joshi@seqera.io" }]
 # TODO https://pypi.org/classifiers/
-classifiers = ["License :: OSI Approved :: Apache Software License"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = ["pyyaml>=6.0.0", "typer[all]>=0.15.1"]
 [project.urls]
 Homepage = "https://seqera.io/"
