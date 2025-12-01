@@ -535,9 +535,44 @@ def test_error_duplicate_name_yaml_file(mock_yaml_file):
         helper.parse_all_yaml([file_path])
     assert (
         "Duplicate name key specified in config file for "
-        "compute-envs: test_computeenv. Please specify "
-        "a unique value." in str(e.value)
+        "compute-envs: test_computeenv in my_organization/my_workspace. "
+        "Please specify a unique value." in str(e.value)
     )
+
+
+def test_duplicate_name_different_workspaces_allowed(mock_yaml_file):
+    """Test that duplicate names are allowed across different workspaces."""
+    test_data = {
+        "compute-envs": [
+            {
+                "name": "SharedCE",
+                "workspace": "my_organization/team1",
+                "credentials": "my_credentials",
+                "type": "aws-batch",
+                "config-mode": "forge",
+            },
+            {
+                "name": "SharedCE",
+                "workspace": "my_organization/team2",
+                "credentials": "my_credentials",
+                "type": "aws-batch",
+                "config-mode": "forge",
+            },
+            {
+                "name": "SharedCE",
+                "workspace": "my_organization/team3",
+                "credentials": "my_credentials",
+                "type": "aws-batch",
+                "config-mode": "forge",
+            },
+        ],
+    }
+    file_path = mock_yaml_file(test_data)
+
+    # Should not raise - duplicate names are allowed in different workspaces
+    result = helper.parse_all_yaml([file_path])
+    assert "compute-envs" in result
+    assert len(result["compute-envs"]) == 3
 
 
 def test_targets_specified():
