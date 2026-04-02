@@ -296,6 +296,46 @@ class TestOverwrite(unittest.TestCase):
             self.overwrite.handle_overwrite("credentials", args3)
 
 
+    def test_delete_resource_compute_envs_includes_wait(self):
+        """Test that deleting compute-envs appends --wait to method args."""
+        operation = {
+            "method_args": lambda args: (
+                "delete",
+                "--name",
+                args["name"],
+                "--workspace",
+                args["workspace"],
+            ),
+        }
+        sp_args = {"name": "test-ce", "workspace": "test-workspace"}
+
+        self.overwrite.delete_resource("compute-envs", operation, sp_args)
+
+        self.mock_sp.compute_envs = self.mock_sp.__getattr__("compute-envs")
+        self.mock_sp.__getattr__("compute-envs").assert_called_with(
+            "delete", "--name", "test-ce", "--workspace", "test-workspace", "--wait"
+        )
+
+    def test_delete_resource_credentials_does_not_include_wait(self):
+        """Test that deleting non-compute-env resources does NOT append --wait."""
+        operation = {
+            "method_args": lambda args: (
+                "delete",
+                "--name",
+                args["name"],
+                "--workspace",
+                args["workspace"],
+            ),
+        }
+        sp_args = {"name": "test-cred", "workspace": "test-workspace"}
+
+        self.overwrite.delete_resource("credentials", operation, sp_args)
+
+        self.mock_sp.__getattr__("credentials").assert_called_with(
+            "delete", "--name", "test-cred", "--workspace", "test-workspace"
+        )
+
+
 # TODO: tests for destroy and JSON caching
 
 if __name__ == "__main__":
