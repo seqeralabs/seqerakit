@@ -295,7 +295,6 @@ class TestOverwrite(unittest.TestCase):
         with self.assertRaises(ResourceExistsError):
             self.overwrite.handle_overwrite("credentials", args3)
 
-
     def test_delete_resource_compute_envs_includes_wait(self):
         """Test that deleting compute-envs appends --wait to method args."""
         operation = {
