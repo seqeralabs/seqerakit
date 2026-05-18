@@ -351,6 +351,8 @@ class Overwrite:
         arguments defined in the operation dictionary.
         """
         method_args = operation["method_args"](sp_args)
+        if block == "compute-envs":
+            method_args = list(method_args) + ["--wait"]
         method = getattr(self.sp, block)
         method(*method_args)
 
