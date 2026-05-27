@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import time
 from seqerakit import utils
 from seqerakit.seqeraplatform import ResourceExistsError
 from seqerakit.on_exists import OnExists
@@ -351,10 +352,62 @@ class Overwrite:
         arguments defined in the operation dictionary.
         """
         method_args = operation["method_args"](sp_args)
-        if block == "compute-envs":
-            method_args = list(method_args) + ["--wait"]
         method = getattr(self.sp, block)
         method(*method_args)
+
+        if block == "compute-envs":
+            self._wait_for_ce_deletion(sp_args)
+
+    def _wait_for_ce_deletion(self, sp_args, poll_interval=5, timeout=300):
+        """
+        Poll until a compute environment is no longer visible in the Platform
+        workspace listing, which is the point at which its name is free to
+        reuse.
+
+        Forge CE deletion is asynchronous: Platform marks the CE as DELETING and
+        cleans up the backing cloud resources in the background. During this
+        window the CE stays in the workspace listing and its name remains
+        reserved, so an immediate recreate (on_exists: overwrite) fails with an
+        "already exists" error. Verified empirically against AWS Batch Forge: the
+        CE remains listed as DELETING for the full disposal (~3 min) and leaves
+        the listing in the same moment its name frees up.
+
+        Polling the listing keeps this compatible with any tw version, unlike
+        delegating to `tw compute-envs delete --wait`, which only exists in
+        tower-cli >= 0.30.0.
+
+        If disposal fails, Platform leaves the CE in ERRORED status (it stays
+        listed), so this poll runs to the timeout and raises rather than
+        recreating over a half-disposed environment.
+        """
+        name = utils.resolve_env_var(sp_args["name"])
+        workspace = sp_args["workspace"]
+        cache_key = f"compute-envs:{workspace}"
+        deadline = time.monotonic() + timeout
+
+        logging.info(f" Waiting for compute environment '{name}' to be deleted...")
+
+        while time.monotonic() < deadline:
+            time.sleep(poll_interval)
+
+            # Invalidate cache and re-fetch the CE list
+            self.block_jsondata.pop(cache_key, None)
+            json_method = getattr(self.sp, "-o json")
+            with self.sp.suppress_output():
+                self.cached_jsondata = json_method(
+                    "compute-envs", "list", "-w", workspace
+                )
+            self.block_jsondata[cache_key] = self.cached_jsondata
+
+            if not utils.check_if_exists(self.cached_jsondata, "name", name):
+                logging.info(f" Compute environment '{name}' successfully deleted.")
+                return
+
+        raise TimeoutError(
+            f"Timed out after {timeout}s waiting for compute environment "
+            f"'{name}' to be deleted. It is still listed, which means disposal "
+            f"has not finished (DELETING) or has failed (ERRORED)."
+        )
 
     def _get_values_from_cmd_args(self, cmd_args, keys):
         """
