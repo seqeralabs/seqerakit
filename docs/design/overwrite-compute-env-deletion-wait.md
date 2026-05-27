@@ -55,10 +55,10 @@ The condition that gates a safe recreate is "the name is free to reuse." The
 listing was verified empirically against a live AWS Batch Forge CE in
 `scidev/testing`:
 
-| time after delete | in `compute-envs list` | name reserved (recreate probe) |
-| --- | --- | --- |
-| 1s – 184s (~3 min) | yes, status `DELETING` | yes, recreate rejected |
-| 194s | no, absent | no, recreate succeeded |
+| time after delete  | in `compute-envs list` | name reserved (recreate probe) |
+| ------------------ | ---------------------- | ------------------------------ |
+| 1s – 184s (~3 min) | yes, status `DELETING` | yes, recreate rejected         |
+| 194s               | no, absent             | no, recreate succeeded         |
 
 Listing-absence and name-freedom coincide. The CE stays listed as `DELETING` for
 the full disposal and leaves the listing in the same moment its name frees up,
