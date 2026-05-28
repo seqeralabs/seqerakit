@@ -399,7 +399,12 @@ class Overwrite:
                 )
             self.block_jsondata[cache_key] = self.cached_jsondata
 
-            if not utils.check_if_exists(self.cached_jsondata, "name", name):
+            # Check name presence locally to avoid per-poll INFO log spam from
+            # check_if_exists; INFO is reserved for start/success/timeout.
+            still_listed = self.cached_jsondata and utils.find_key_value_in_dict(
+                json.loads(self.cached_jsondata), "name", name, return_key=None
+            )
+            if not still_listed:
                 logging.info(f" Compute environment '{name}' successfully deleted.")
                 return
 
