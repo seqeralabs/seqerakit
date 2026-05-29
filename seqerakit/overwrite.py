@@ -394,15 +394,13 @@ class Overwrite:
             self.block_jsondata.pop(cache_key, None)
             json_method = getattr(self.sp, "-o json")
             with self.sp.suppress_output():
-                self.cached_jsondata = json_method(
-                    "compute-envs", "list", "-w", workspace
-                )
-            self.block_jsondata[cache_key] = self.cached_jsondata
+                listing = json_method("compute-envs", "list", "-w", workspace)
+            self.block_jsondata[cache_key] = listing
 
             # Check name presence locally to avoid per-poll INFO log spam from
             # check_if_exists; INFO is reserved for start/success/timeout.
-            still_listed = self.cached_jsondata and utils.find_key_value_in_dict(
-                json.loads(self.cached_jsondata), "name", name, return_key=None
+            still_listed = listing and utils.find_key_value_in_dict(
+                json.loads(listing), "name", name, return_key=None
             )
             if not still_listed:
                 logging.info(f" Compute environment '{name}' successfully deleted.")
