@@ -7,3 +7,4 @@ class OnExists(Enum):
     FAIL = auto()
     IGNORE = auto()
     OVERWRITE = auto()
+    UPDATE = auto()

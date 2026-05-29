@@ -391,5 +391,147 @@ class TestOverwrite(unittest.TestCase):
 
 # TODO: tests for destroy and JSON caching
 
+
+class TestOnExistsUpdate(unittest.TestCase):
+    def setUp(self):
+        self.mock_sp = Mock()
+        self.mock_sp.suppress_output.return_value.__enter__ = Mock()
+        self.mock_sp.suppress_output.return_value.__exit__ = Mock()
+        self.overwrite = Overwrite(self.mock_sp)
+
+    def _mock_resource_exists(self, name):
+        self.mock_sp.__getattr__("-o json").return_value = json.dumps({"name": name})
+
+    # --- update_resource ---
+
+    def test_update_resource_credentials(self):
+        """update_resource calls credentials update with the full args."""
+        args = ["aws", "--name", "my-cred", "--workspace", "org/ws"]
+        self.overwrite.update_resource("credentials", args)
+        self.mock_sp.credentials.assert_called_once_with("update", *args)
+
+    def test_update_resource_secrets(self):
+        """update_resource calls secrets update with the full args."""
+        args = ["--name", "my-secret", "--workspace", "org/ws", "--value", "s3cr3t"]
+        self.overwrite.update_resource("secrets", args)
+        self.mock_sp.secrets.assert_called_once_with("update", *args)
+
+    def test_update_resource_pipelines(self):
+        """update_resource calls pipelines update with the full args."""
+        args = ["--name", "my-pipe", "--workspace", "org/ws", "https://github.com/x"]
+        self.overwrite.update_resource("pipelines", args)
+        self.mock_sp.pipelines.assert_called_once_with("update", *args)
+
+    def test_update_resource_teams_updates_config_and_adds_members(self):
+        """update_resource updates team config and additively adds each member."""
+        cmd_args = ["--name", "my-team", "--organization", "my-org"]
+        members_cmd_args = [
+            [
+                "--team",
+                "my-team",
+                "--organization",
+                "my-org",
+                "add",
+                "--member",
+                "a@x.com",
+            ],
+            [
+                "--team",
+                "my-team",
+                "--organization",
+                "my-org",
+                "add",
+                "--member",
+                "b@x.com",
+            ],
+        ]
+        self.overwrite.update_resource("teams", (cmd_args, members_cmd_args))
+
+        self.mock_sp.teams.assert_any_call("update", *cmd_args)
+        self.mock_sp.teams.assert_any_call("members", *members_cmd_args[0])
+        self.mock_sp.teams.assert_any_call("members", *members_cmd_args[1])
+
+    def test_update_resource_teams_skips_existing_members(self):
+        """update_resource ignores ResourceExistsError for already-present members."""
+        cmd_args = ["--name", "my-team", "--organization", "my-org"]
+        member = [
+            "--team",
+            "my-team",
+            "--organization",
+            "my-org",
+            "add",
+            "--member",
+            "a@x.com",
+        ]
+
+        self.mock_sp.teams.side_effect = [None, ResourceExistsError("already a member")]
+
+        # Should not raise
+        self.overwrite.update_resource("teams", (cmd_args, [member]))
+        self.assertEqual(self.mock_sp.teams.call_count, 2)
+
+    # --- handle_overwrite UPDATE branch ---
+
+    def test_handle_overwrite_update_credentials(self):
+        """UPDATE on an existing credential calls update_resource and returns False."""
+        args = ["aws", "--name", "my-cred", "--workspace", "org/ws"]
+        self._mock_resource_exists("my-cred")
+
+        result = self.overwrite.handle_overwrite(
+            "credentials", args, on_exists=OnExists.UPDATE
+        )
+
+        self.mock_sp.credentials.assert_called_once_with("update", *args)
+        self.assertFalse(result)
+
+    def test_handle_overwrite_update_secrets(self):
+        """UPDATE on an existing secret calls update_resource and returns False."""
+        args = ["--name", "my-secret", "--workspace", "org/ws", "--value", "s3cr3t"]
+        self._mock_resource_exists("my-secret")
+
+        result = self.overwrite.handle_overwrite(
+            "secrets", args, on_exists=OnExists.UPDATE
+        )
+
+        self.mock_sp.secrets.assert_called_once_with("update", *args)
+        self.assertFalse(result)
+
+    def test_handle_overwrite_update_pipelines(self):
+        """UPDATE on an existing pipeline calls update_resource and returns False."""
+        args = ["--name", "my-pipe", "--workspace", "org/ws", "https://github.com/x"]
+        self._mock_resource_exists("my-pipe")
+
+        result = self.overwrite.handle_overwrite(
+            "pipelines", args, on_exists=OnExists.UPDATE
+        )
+
+        self.mock_sp.pipelines.assert_called_once_with("update", *args)
+        self.assertFalse(result)
+
+    def test_handle_overwrite_update_when_resource_missing_creates_normally(self):
+        """UPDATE when resource does not exist returns True (proceeds to create)."""
+        args = ["--name", "new-cred", "--workspace", "org/ws"]
+        self.mock_sp.__getattr__("-o json").return_value = json.dumps({})
+
+        result = self.overwrite.handle_overwrite(
+            "credentials", args, on_exists=OnExists.UPDATE
+        )
+
+        self.mock_sp.credentials.assert_not_called()
+        self.assertTrue(result)
+
+    def test_handle_overwrite_update_unsupported_block_raises(self):
+        """UPDATE on an unsupported block raises ValueError."""
+        args = ["--name", "my-ce", "--workspace", "org/ws"]
+        self._mock_resource_exists("my-ce")
+
+        with self.assertRaises(ValueError) as ctx:
+            self.overwrite.handle_overwrite(
+                "compute-envs", args, on_exists=OnExists.UPDATE
+            )
+
+        self.assertIn("compute-envs", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

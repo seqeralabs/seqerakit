@@ -39,6 +39,9 @@ class Overwrite:
         "studios",
     ]
 
+    # Blocks that support on_exists: update
+    updateable_blocks = {"credentials", "secrets", "pipelines", "teams"}
+
     # Define valid on_exists options as enum values
     VALID_ON_EXISTS_OPTIONS = [e.name.lower() for e in OnExists]
 
@@ -162,6 +165,15 @@ class Overwrite:
                         " Overwriting.\n"
                     )
                     self.delete_resource(block, operation, sp_args)
+                elif on_exists == OnExists.UPDATE:
+                    if block not in self.updateable_blocks:
+                        raise ValueError(
+                            f"on_exists: update is not supported for '{block}'. "
+                            f"Supported resources: {sorted(self.updateable_blocks)}"
+                        )
+                    logging.info(f" The {block} resource already exists. Updating.\n")
+                    self.update_resource(block, args)
+                    return False
                 elif on_exists == OnExists.IGNORE:
                     logging.info(
                         f" The {block} resource already exists." " Skipping creation.\n"
@@ -411,6 +423,30 @@ class Overwrite:
             f"'{name}' to be deleted. It is still listed, which means disposal "
             f"has not finished (DELETING) or has failed (ERRORED)."
         )
+
+    def update_resource(self, block, args):
+        """
+        Update an existing resource in Seqera Platform.
+
+        For credentials, secrets, and pipelines, calls the `update` subcommand
+        with the same args as create (full config replacement in-place, preserving
+        the resource ID).
+
+        For teams, updates the team attributes and additively adds any members
+        listed in the YAML that are not already in the team. Members not listed
+        are left untouched.
+        """
+        if block == "teams":
+            cmd_args, members_cmd_args = args
+            self.sp.teams("update", *cmd_args)
+            for sublist in members_cmd_args:
+                try:
+                    self.sp.teams("members", *sublist)
+                except ResourceExistsError:
+                    pass  # member already in team — additive update, skip
+        else:
+            method = getattr(self.sp, block)
+            method("update", *args)
 
     def _get_values_from_cmd_args(self, cmd_args, keys):
         """
