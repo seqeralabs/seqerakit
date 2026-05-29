@@ -295,8 +295,9 @@ class TestOverwrite(unittest.TestCase):
         with self.assertRaises(ResourceExistsError):
             self.overwrite.handle_overwrite("credentials", args3)
 
-    def test_delete_resource_compute_envs_includes_wait(self):
-        """Test that deleting compute-envs appends --wait to method args."""
+    @patch.object(Overwrite, "_wait_for_ce_deletion")
+    def test_delete_resource_waits_for_compute_envs(self, mock_wait):
+        """delete_resource issues a plain delete then waits for CE deletion."""
         operation = {
             "method_args": lambda args: (
                 "delete",
@@ -310,13 +311,15 @@ class TestOverwrite(unittest.TestCase):
 
         self.overwrite.delete_resource("compute-envs", operation, sp_args)
 
-        self.mock_sp.compute_envs = self.mock_sp.__getattr__("compute-envs")
+        # plain delete, no --wait flag appended
         self.mock_sp.__getattr__("compute-envs").assert_called_with(
-            "delete", "--name", "test-ce", "--workspace", "test-workspace", "--wait"
+            "delete", "--name", "test-ce", "--workspace", "test-workspace"
         )
+        mock_wait.assert_called_once_with(sp_args)
 
-    def test_delete_resource_credentials_does_not_include_wait(self):
-        """Test that deleting non-compute-env resources does NOT append --wait."""
+    @patch.object(Overwrite, "_wait_for_ce_deletion")
+    def test_delete_resource_does_not_wait_for_credentials(self, mock_wait):
+        """delete_resource does NOT wait when deleting non-compute-env resources."""
         operation = {
             "method_args": lambda args: (
                 "delete",
@@ -333,6 +336,57 @@ class TestOverwrite(unittest.TestCase):
         self.mock_sp.__getattr__("credentials").assert_called_with(
             "delete", "--name", "test-cred", "--workspace", "test-workspace"
         )
+        mock_wait.assert_not_called()
+
+    @patch("seqerakit.overwrite.time")
+    def test_wait_for_ce_deletion_immediate(self, mock_time):
+        """CE absent on the first poll returns without raising."""
+        mock_time.monotonic = Mock(side_effect=[0, 1])  # start, first check
+
+        json_method_mock = Mock(return_value=json.dumps({"computeEnvs": []}))
+        self.mock_sp.configure_mock(**{"-o json": json_method_mock})
+
+        self.overwrite._wait_for_ce_deletion({"name": "my-ce", "workspace": "org/ws"})
+
+        mock_time.sleep.assert_called_with(5)
+        json_method_mock.assert_called_with("compute-envs", "list", "-w", "org/ws")
+
+    @patch("seqerakit.overwrite.time")
+    def test_wait_for_ce_deletion_delayed(self, mock_time):
+        """CE present for several polls, then gone, returns without raising."""
+        # monotonic: start=0, poll1=5, poll2=10, poll3=15
+        mock_time.monotonic = Mock(side_effect=[0, 5, 10, 15])
+
+        ce_present = json.dumps({"computeEnvs": [{"name": "my-ce"}]})
+        ce_gone = json.dumps({"computeEnvs": []})
+
+        json_method_mock = Mock(side_effect=[ce_present, ce_present, ce_gone])
+        self.mock_sp.configure_mock(**{"-o json": json_method_mock})
+
+        self.overwrite._wait_for_ce_deletion({"name": "my-ce", "workspace": "org/ws"})
+
+        assert mock_time.sleep.call_count == 3
+        assert json_method_mock.call_count == 3
+
+    @patch("seqerakit.overwrite.time")
+    def test_wait_for_ce_deletion_timeout(self, mock_time):
+        """CE never disappears: raise TimeoutError naming both terminal states."""
+        # monotonic returns values that exceed the (short) timeout
+        mock_time.monotonic = Mock(side_effect=[0, 5, 11])
+
+        ce_present = json.dumps({"computeEnvs": [{"name": "my-ce"}]})
+        json_method_mock = Mock(return_value=ce_present)
+        self.mock_sp.configure_mock(**{"-o json": json_method_mock})
+
+        with self.assertRaises(TimeoutError) as ctx:
+            self.overwrite._wait_for_ce_deletion(
+                {"name": "my-ce", "workspace": "org/ws"},
+                timeout=10,
+            )
+
+        assert "my-ce" in str(ctx.exception)
+        assert "DELETING" in str(ctx.exception)
+        assert "ERRORED" in str(ctx.exception)
 
 
 # TODO: tests for destroy and JSON caching
