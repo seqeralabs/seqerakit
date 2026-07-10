@@ -133,13 +133,11 @@ def create_temp_yaml(params_dict, params_file=None):
                 json.load(file) if file_path.endswith(".json") else yaml.safe_load(file)
             )
 
-    combined_params = {}
-
     if params_file:
         file_params = read_file(params_file)
-        combined_params.update(file_params)
-
-    combined_params.update(params_dict)
+        combined_params = file_params | params_dict
+    else:
+        combined_params = params_dict
 
     # Filter out None values but keep empty strings
     combined_params = {k: v for k, v in combined_params.items() if v is not None}

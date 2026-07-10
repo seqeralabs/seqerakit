@@ -21,7 +21,6 @@ the required options for each resource based on the Seqera Platform CLI.
 import logging
 import os
 from enum import Enum
-from typing import Optional, List
 
 import typer
 
@@ -65,7 +64,7 @@ def version_callback(value: bool):
 
 @app.command()
 def main(
-    yaml: Optional[List[str]] = typer.Argument(
+    yaml: list[str] | None = typer.Argument(
         None,
         help="One or more YAML files with Seqera Platform resource definitions.",
     ),
@@ -94,7 +93,7 @@ def main(
         "-d",
         help="Print the commands that would be executed.",
     ),
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-v",
@@ -107,24 +106,24 @@ def main(
         "--delete",
         help="Recursively delete resources defined in the YAML files.",
     ),
-    cli_args: Optional[List[str]] = typer.Option(
+    cli_args: list[str] | None = typer.Option(
         None,
         "--cli",
         help="Additional Seqera Platform CLI specific options to be passed, "
         "enclosed in double quotes (e.g. '--cli=\"--insecure\"'). Can be specified multiple times.",
     ),
-    targets: Optional[str] = typer.Option(
+    targets: str | None = typer.Option(
         None,
         "--targets",
         help="Specify the resources to be targeted for creation in a YAML file through "
         "a comma-separated list (e.g. '--targets=teams,participants').",
     ),
-    env_file: Optional[str] = typer.Option(
+    env_file: str | None = typer.Option(
         None,
         "--env-file",
         help="Path to a YAML file containing environment variables for configuration.",
     ),
-    on_exists: Optional[str] = typer.Option(
+    on_exists: str | None = typer.Option(
         None,
         "--on-exists",
         help="Globally specifies the action to take if a resource already exists.",
